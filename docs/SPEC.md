@@ -67,9 +67,13 @@ rest of the spec must follow.
 | `github.com/cosmos/cosmos-sdk` | v0.54.4 |
 | `github.com/cometbft/cometbft` | v0.39.4 (as required by SDK v0.54.4) |
 | `github.com/cosmos/ibc-go/v11` | v11.2.0 |
-| `github.com/Masterminds/semver/v3` | latest v3 |
-| `cosmossdk.io/collections` | v1.4.0 (as required by SDK v0.54.4) |
-| protobuf tooling | `buf` with `buf.gen.gogo.yaml` and `buf.gen.pulsar.yaml`, as in simapp |
+| `github.com/Masterminds/semver/v3` | v3.5.0 |
+| `cosmossdk.io/collections` | v1.4.0 |
+| `github.com/cosmos/cosmos-sdk/store/v2` | v2.0.0 (store types import path is `github.com/cosmos/cosmos-sdk/store/v2/types`) |
+| `cosmossdk.io/log/v2` | v2.1.0 |
+| `go.uber.org/mock` | v0.6.0 (`mockgen` for keeper test mocks) |
+| `replace` directives | `github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0` and `github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7`, copied from simapp |
+| protobuf tooling | `ghcr.io/cosmos/proto-builder:0.18.1` via Docker, gogo output only (`buf.gen.gogo.yaml`). No pulsar generation; AutoCLI uses the service name strings directly. |
 | Linter | `golangci-lint`, config copied from simapp |
 
 Go module path: `github.com/glass-harbor/protocol`.
@@ -128,6 +132,7 @@ Module account permissions:
 | `fee_collector` | none |
 | `distribution` | none |
 | `protocolpool` | none |
+| `protocolpool_escrow` | none (required by the protocolpool keeper constructor) |
 | `mint` | minter |
 | `bonded_tokens_pool` | burner, staking |
 | `not_bonded_tokens_pool` | burner, staking |
@@ -135,8 +140,10 @@ Module account permissions:
 | `transfer` | minter, burner |
 | `registry` | none (holds blue-check escrow) |
 
-App wiring uses `depinject` with an `app_config.go` (`appconfig.Compose`) and
-`app.go` exactly as simapp does. Begin/end blocker order: `registry` EndBlocker runs
+App wiring is manual (`module.NewManager`, keepers constructed by hand) exactly as
+`simapp/app.go` does at SDK v0.54.4. There is no depinject `app_config.go`; simapp at
+this tag does not ship one. `blockexec.Apply` (block-STM executor selection) is omitted;
+the default sequential executor is used. Begin/end blocker order: `registry` EndBlocker runs
 **after** `staking` so bonded power is final for the block.
 
 ## 5. Repository layout
@@ -153,15 +160,15 @@ App wiring uses `depinject` with an `app_config.go` (`appconfig.Compose`) and
 │   ├── query.proto
 │   ├── genesis.proto
 │   └── events.proto
-├── proto/buf.yaml, buf.gen.gogo.yaml, buf.gen.pulsar.yaml, buf.lock
+├── proto/buf.yaml, buf.gen.gogo.yaml, buf.lock   # gogo only; no pulsar / api/ directory
 ├── x/registry/
-│   ├── module/                 # module.go (AppModule, depinject), autocli.go, abci.go
-│   ├── keeper/                 # keeper.go, msg_server.go, query_server.go, params.go,
-│   │                           # app.go, version.go, request.go, tally.go, genesis.go, + _test.go
-│   ├── types/                  # generated pb, keys.go, errors.go, codec.go, msgs.go,
-│   │                           # validation.go (semver/magnet/checksum/icon), expected_keepers.go
-│   └── README.md               # short module summary pointing at docs/SPEC.md
-├── api/                        # pulsar generated code
+│   ├── module.go               # AppModule (genesis, services, EndBlock)
+│   ├── autocli.go
+│   ├── keeper/                 # keeper.go, msg_server.go, grpc_query.go, fees.go, abci.go,
+│   │                           # genesis.go, + _test.go
+│   ├── types/                  # generated pb, keys.go, errors.go, codec.go, params.go,
+│   │                           # genesis.go, validation.go, expected_keepers.go
+│   └── testutil/               # gomock mocks generated from expected_keepers.go
 ├── scripts/
 │   ├── localnet.sh             # init + start single validator
 │   └── protocgen.sh
@@ -296,7 +303,7 @@ tests are deterministic.
 | `RequestsByStatus` | 0x08 | `KeySet` | `(status, request_id)` | — |
 | `OpenRequestByVersion` | 0x09 | `Map` | `(app_id, version_string)` | `request_id` |
 | `Votes` | 0x0A | `Map` | `(request_id, valoper_bytes)` | `Vote` |
-| `ExpiryQueue` | 0x0B | `KeySet` | `(expires_at as time key, request_id)` | — |
+| `ExpiryQueue` | 0x0B | `KeySet` | `(expires_at, request_id)` via `collections.PairKeyCodec(sdk.TimeKey, collections.Uint64Key)` with `//nolint:staticcheck` (collections v1.4.0 has no time key codec; gov and feegrant do the same) | — |
 
 `Apps`, `Versions`, `Requests`, `Votes` are the source of truth. The other
 collections are secondary indexes and must be kept consistent in the same
@@ -462,13 +469,13 @@ Runs every block after `x/staking`'s EndBlocker.
 now = ctx.BlockTime()
 for (expires_at, id) in ExpiryQueue where expires_at <= now, ascending:
     req = Requests[id]                       // must be OPEN; panic otherwise (invariant)
-    total = staking.TotalBondedTokens()
+    total = staking.TotalValidatorPower(ctx)      // bonded pool balance, math.Int
     yes, no = 0, 0
     yesVoters = []                           // (valoper, power)
     for vote in Votes with prefix id:
         val, found = staking.GetValidator(vote.validator)
         if !found || !val.IsBonded(): continue   // weighs zero
-        p = val.GetBondedTokens()
+        p = val.BondedTokens()                     // zero unless status == Bonded
         if vote.option == YES: yes += p; yesVoters.append((vote.validator, p))
         else: no += p
     passed = total > 0 && yes * 3 >= total * 2
@@ -634,7 +641,7 @@ EndBlocker or by `MsgYankVersion` (cancel + refund).
 AutoCLI (`autocli.go`) generates all commands. Naming:
 
 ```
-harbord tx registry create-app      --title --description --icon-file --website --source-url --category --tags
+harbord tx registry create-app      --title --description --icon <base64> --icon-mime --website --source-url --category --tags
 harbord tx registry update-app      <app-id> ... (same flags)
 harbord tx registry transfer-app    <app-id> <new-owner>
 harbord tx registry set-deprecated  <app-id> <true|false>
@@ -654,9 +661,9 @@ harbord query registry requests     [--status open|passed|failed|cancelled]
 harbord query registry votes        <request-id>
 ```
 
-`--icon-file` reads a local file and infers `icon_mime` from the PNG signature or
-`.svg` extension. If AutoCLI cannot express `--icon-file`, add a hand-written
-`create-app`/`update-app` command and disable AutoCLI for those two.
+AutoCLI encodes `bytes` fields as base64, so pass `--icon "$(base64 < icon.png)"`
+`--icon-mime image/png`. (Skipped: a hand-written `--icon-file` flag; add if the base64
+flag proves painful.)
 
 ## 9. Localnet
 
@@ -683,7 +690,7 @@ treasury balances increased by the expected amounts.
 | Layer | Location | Tool | Must cover |
 |-------|----------|------|-----------|
 | Validation unit | `x/registry/types/*_test.go` | `testing` | table tests for every rule in §6.4, incl. build-metadata rejection, leading `v`, uppercase checksum, base32 vs hex BTIH, PNG/SVG signature, tag charset |
-| Keeper unit | `x/registry/keeper/*_test.go` | `testing` + mocked bank/staking (`gomock`, as in SDK modules) | every message success path and every listed error; tally math (exact 2/3 boundary, zero total power, unbonded voter ignored, changed vote, payout rounding and dust, refund on fail, cancel on yank); genesis round trip; invariants |
+| Keeper unit | `x/registry/keeper/*_test.go` | `testing` + `testify/suite` + gomock mocks in `x/registry/testutil` generated by `mockgen -source=x/registry/types/expected_keepers.go` | every message success path and every listed error; tally math (exact 2/3 boundary, zero total power, unbonded voter ignored, changed vote, payout rounding and dust, refund on fail, cancel on yank); genesis round trip; invariants |
 | Integration | `tests/integration` | real `app.New` with in-memory DB, SDK integration helpers | every message through the full msg router with real bank/staking; fee split reaches treasury and `fee_collector`; EndBlocker-driven resolution after advancing block time; AppsByOwner and Versions ordering via gRPC query server |
 | Smoke | `scripts/smoke.sh` | bash + `harbord` CLI | §9 flow against a running localnet |
 
