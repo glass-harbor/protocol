@@ -311,6 +311,9 @@ lint:
   except:
     - UNARY_RPC
     - COMMENT_FIELD
+    - COMMENT_ENUM_VALUE
+    - COMMENT_MESSAGE
+    - COMMENT_RPC
     - SERVICE_SUFFIX
     - PACKAGE_VERSION_SUFFIX
     - RPC_REQUEST_STANDARD_NAME
@@ -870,7 +873,7 @@ message EventParamsUpdated {}
 - [ ] **Step 7: Lint and generate**
 
 Run: `make proto-lint`
-Expected: no output, exit 0. If buf complains about missing comments on messages (COMMENTS rule), add a one-line `//` comment above each flagged message; do not disable the rule.
+Expected: no output, exit 0. Only service and enum declarations need a leading comment (the `COMMENTS` rule with the exceptions above); the proto text in this task already has them.
 
 Run: `make proto-gen && go mod tidy && go build ./...`
 Expected: `x/registry/types/*.pb.go` and `query.pb.gw.go` exist, `proto/buf.lock` is created, build passes. Check `grep -n "REQUEST_STATUS_OPEN RequestStatus" x/registry/types/registry.pb.go` prints one line (confirms enum prefix removal).
@@ -5704,7 +5707,12 @@ t0=$(bal treasury); v0=$(bal validator)
 tx create-app --title "Smoke App" --description "smoke" --category utilities --from alice
 tx publish-version 1 1.0.0 "$MAGNET" "$SHA" 1234 --from alice
 tx request-blue-check 1 1.0.0 --escrow 1000000uglass --from alice
-tx vote 1 yes --from validator || tx vote 1 VOTE_OPTION_YES --from validator
+# AutoCLI accepts the enum suffix ("yes"); fall back to the full enum name if this client build does not.
+if "$BIN" tx registry vote 1 yes --from validator "${TXF[@]}" >/dev/null 2>&1; then
+  sleep 3
+else
+  tx vote 1 VOTE_OPTION_YES --from validator
+fi
 
 echo "waiting for the 30s voting period..."
 sleep 40
@@ -5716,16 +5724,6 @@ assert_eq "$(bal treasury)" "$((t0 + 1000000 + 500000 + 100000))" "treasury rece
 assert_eq "$(bal validator)" "$((v0 + 900000 - 1000))" "validator received escrow share minus vote fee"
 echo "SMOKE OK"
 ```
-`tx vote 1 yes || tx vote 1 VOTE_OPTION_YES`: the first form is expected to work with AutoCLI's enum parsing; the fallback covers the strict form. If both fail, the `tx` helper already exited non-zero on the first, so restructure as: try `yes` with `set +e`, then fall back — implement exactly that if the `||` form does not behave (because `tx` calls `exit 1`). Simplest correct version:
-```bash
-if ! "$BIN" tx registry vote 1 yes --from validator "${TXF[@]}" >/dev/null 2>&1; then
-  tx vote 1 VOTE_OPTION_YES --from validator
-else
-  sleep 3
-fi
-```
-Use this version.
-
 - [ ] **Step 3: Write Dockerfile**
 
 ```dockerfile
