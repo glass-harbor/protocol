@@ -68,14 +68,15 @@ rest of the spec must follow.
 | `github.com/cometbft/cometbft` | v0.39.4 (as required by SDK v0.54.4) |
 | `github.com/cosmos/ibc-go/v11` | v11.2.0 |
 | `github.com/Masterminds/semver/v3` | latest v3 |
-| `cosmossdk.io/collections` | version required by SDK v0.54.4 |
+| `cosmossdk.io/collections` | v1.4.0 (as required by SDK v0.54.4) |
 | protobuf tooling | `buf` with `buf.gen.gogo.yaml` and `buf.gen.pulsar.yaml`, as in simapp |
 | Linter | `golangci-lint`, config copied from simapp |
 
 Go module path: `github.com/glass-harbor/protocol`.
 
-Reference implementation to imitate for wiring, testing, and layout:
-`github.com/cosmos/cosmos-sdk/simapp` at v0.54.4, plus `x/gov` for the
+Reference implementation to imitate for wiring, testing, and layout: the `simapp/`
+directory at git tag `v0.54.4` of `https://github.com/cosmos/cosmos-sdk` (it is not a
+released Go module; read it from the repository, do not import it), plus `x/gov` for the
 request/vote/expiry-queue pattern.
 
 ## 4. Chain identity
@@ -107,7 +108,7 @@ Standard SDK defaults unless listed here.
 | `staking.max_validators` | 100 |
 | `staking.unbonding_time` | 21 days (mainnet); 60 s (localnet) |
 | `mint` | SDK defaults (`mint_denom` = `uglass`) |
-| `distribution.community_tax` | SDK default (2%) |
+| `distribution.community_tax` | SDK default (2%); the pool itself is `x/protocolpool` |
 | `gov.min_deposit` | `10000000uglass` |
 | `gov.voting_period` | 7 days (mainnet); 60 s (localnet) |
 | `gov.expedited_voting_period` | 1 day (mainnet); 30 s (localnet) |
@@ -115,9 +116,10 @@ Standard SDK defaults unless listed here.
 
 ### 4.3 Modules
 
-`auth`, `bank`, `staking`, `distribution`, `slashing`, `gov`, `mint`, `params`
-(legacy compat only), `upgrade`, `consensus`, `evidence`, `feegrant`, `authz`,
-`genutil`, `vesting`, `ibc` (core), `ibc-transfer`, and the custom `registry` module.
+`auth`, `bank`, `staking`, `distribution`, `protocolpool` (community pool), `slashing`,
+`gov`, `mint`, `upgrade`, `consensus`, `evidence`, `feegrant`, `authz`, `genutil`,
+`vesting`, `ibc` (core), `ibc-transfer`, and the custom `registry` module. Verified
+present in SDK v0.54.4: there is no `x/crisis`, and `x/params` is not used.
 
 Module account permissions:
 
@@ -125,6 +127,7 @@ Module account permissions:
 |----------------|-------------|
 | `fee_collector` | none |
 | `distribution` | none |
+| `protocolpool` | none |
 | `mint` | minter |
 | `bonded_tokens_pool` | burner, staking |
 | `not_bonded_tokens_pool` | burner, staking |
@@ -411,9 +414,10 @@ aborts the tx with the named error and no state change.
 
 | | |
 |-|-|
-| Fields | `owner`, `app_id`, `version`, `escrow` (`Coin`, may be omitted or zero) |
+| Fields | `owner`, `app_id`, `version`, `escrow` (`optional Coin`) |
+| Escrow rule | `escrow == nil` or `escrow.amount == 0` means no escrow and skips the denom check. If `amount > 0`, `denom` must be `uglass`. Stored as `0uglass` when absent. |
 | Signer | `owner` |
-| Checks | app exists; `owner == app.owner`; version exists; `!version.yanked` → `ErrVersionYanked`; `!version.blue_check` → `ErrAlreadyVerified`; no `OpenRequestByVersion` entry → `ErrRequestExists`; `escrow.denom == "uglass"` and `escrow.amount >= 0` when present → `ErrInvalidEscrow` |
+| Checks | app exists; `owner == app.owner`; version exists; `!version.yanked` → `ErrVersionYanked`; `!version.blue_check` → `ErrAlreadyVerified`; no `OpenRequestByVersion` entry → `ErrRequestExists`; escrow rule above → `ErrInvalidEscrow` |
 | Funds | if `escrow.amount > 0`: `SendCoinsFromAccountToModule(owner, "registry", escrow)` |
 | State | `id = RequestSeq.Next()`; write `Request{ kind: VERIFY, status: OPEN, requester: owner, escrow, submit_height, submit_time, expires_at = submit_time + voting_period }`; add `RequestsByStatus(OPEN, id)`, `OpenRequestByVersion`, `ExpiryQueue(expires_at, id)` |
 | Response | `MsgRequestBlueCheckResponse{ id }` |
@@ -446,7 +450,7 @@ aborts the tx with the named error and no state change.
 |-|-|
 | Fields | `authority`, `params` |
 | Signer | `authority` |
-| Checks | `authority == keeper.authority` (gov module address) → `ErrUnauthorized`; `params.Validate()` → `ErrInvalidParams` |
+| Checks | `authority == keeper.authority` (gov module address) → `ErrUnauthorized`; `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address)` → `ErrInvalidParams` (a module-account treasury would make EndBlocker payouts panic) |
 | State | overwrite `Params` |
 | Event | `EventParamsUpdated{}` |
 
@@ -590,12 +594,13 @@ message GenesisState {
 `Validate()` checks: params valid; app ids unique and `< next_app_id`; every version's
 `app_id` exists and `(app_id, version)` unique; `seq` values per app are exactly
 `1..version_count`; `latest_version` matches the max-seq version; request ids unique
-and `< next_request_id`; at most one OPEN request per `(app_id, version)`; every vote's
-request exists. `InitGenesis` rebuilds `AppsByOwner`, `VersionsBySeq`,
+and `< next_request_id`; at most one OPEN request per `(app_id, version)`; every request's
+`(app_id, version)` exists; every vote's request exists; `treasury_address` is not a
+blocked (module) address. `InitGenesis` rebuilds `AppsByOwner`, `VersionsBySeq`,
 `RequestsByStatus`, `OpenRequestByVersion`, and `ExpiryQueue` (OPEN requests only).
 Export → import → export must be byte-identical (tested).
 
-### 6.11 Invariants (registered with `x/crisis`-style invariant runner or a test helper)
+### 6.11 Invariants (checked by a keeper test helper after every integration test)
 
 1. `registry` module account balance == sum of `escrow` over OPEN requests.
 2. Every `OpenRequestByVersion` entry points at an OPEN request for that version.
