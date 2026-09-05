@@ -134,9 +134,6 @@ func (app *App) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []str
 		}
 		return false
 	})
-	if err != nil {
-		panic(fmt.Errorf("error while reinitializing validators: %w", err))
-	}
 
 	// reinitialize all delegations
 	for _, del := range dels {
