@@ -5,7 +5,7 @@ import errorsmod "cosmossdk.io/errors"
 // Codes start at 2; code 1 is reserved by cosmossdk.io/errors. Never renumber (SPEC §6.9).
 var (
 	ErrAppNotFound        = errorsmod.Register(ModuleName, 2, "app not found")
-	ErrUnauthorized       = errorsmod.Register(ModuleName, 3, "signer is not the app owner or authority")
+	ErrUnauthorized       = errorsmod.Register(ModuleName, 3, "signer is not the app owner")
 	ErrInvalidField       = errorsmod.Register(ModuleName, 4, "invalid field")
 	ErrInvalidIcon        = errorsmod.Register(ModuleName, 5, "invalid icon")
 	ErrInvalidCategory    = errorsmod.Register(ModuleName, 6, "category not allowed")

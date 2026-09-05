@@ -41,7 +41,7 @@ rest of the spec must follow.
 | D15 | Yank | Owner can set an irreversible `yanked` flag on a version. Yanking clears any blue check and cancels (refunds) any open request on that version. Yanked versions cannot be verified. |
 | D16 | Blue check scope | Requested by the app owner, on a specific version. |
 | D17 | Voting | Yes/No votes by bonded validators, signed by the operator key. Vote may be changed while the request is open. |
-| D18 | Threshold | Passes if `yes_power * 3 >= total_bonded_power * 2`, measured once, at expiry. |
+| D18 | Threshold | Passes if `total_bonded_power > 0 && yes_power * 3 >= total_bonded_power * 2`, measured once, at expiry. |
 | D19 | Resolution timing | Tally only at expiry (`voting_period` after submission). No early pass or fail. |
 | D20 | Escrow payout | On pass: treasury cut first, remainder split among Yes voters proportional to bonded power at tally. Dust to treasury. |
 | D21 | Escrow refund | On fail or cancel: full escrow returned to the stored `requester`, even if the app has since been transferred. |
@@ -150,7 +150,7 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 
 ```
 .
-├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go
+├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go, app_test.go
 ├── cmd/harbord/                # main.go, cmd/root.go, cmd/commands.go (simapp-style)
 ├── docs/SPEC.md                # this file
 ├── proto/glassharbor/registry/v1/
@@ -164,8 +164,9 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 ├── x/registry/
 │   ├── module.go               # AppModule (genesis, services, EndBlock)
 │   ├── autocli.go
-│   ├── keeper/                 # keeper.go, msg_server.go, grpc_query.go, fees.go, abci.go,
-│   │                           # genesis.go, + _test.go
+│   ├── README.md               # short module overview for readers of the code
+│   ├── keeper/                 # keeper.go, msg_server.go, app.go/version.go/request.go (handler helpers),
+│   │                           # grpc_query.go, fees.go, abci.go, genesis.go, invariants.go (§6.11 test helper), + _test.go
 │   ├── types/                  # generated pb, keys.go, errors.go, codec.go, params.go,
 │   │                           # genesis.go, validation.go, expected_keepers.go
 │   └── testutil/               # gomock mocks generated from expected_keepers.go
@@ -571,7 +572,7 @@ Registered in `types/errors.go` with `errorsmod.Register("registry", code, msg)`
 | Code | Name | Message |
 |------|------|---------|
 | 2 | `ErrAppNotFound` | app not found |
-| 3 | `ErrUnauthorized` | signer is not the app owner or authority |
+| 3 | `ErrUnauthorized` | signer is not the app owner |
 | 4 | `ErrInvalidField` | invalid field |
 | 5 | `ErrInvalidIcon` | invalid icon |
 | 6 | `ErrInvalidCategory` | category not allowed |
