@@ -258,7 +258,7 @@ new create/update calls that use it.
 | `publish_time` | `google.protobuf.Timestamp` | no | block time |
 | `yanked` | `bool` | YankVersion (false → true only) | |
 | `blue_check` | `bool` | tally, YankVersion | |
-| `blue_check_request_id` | `uint64` | tally | id of the request that granted the current blue check; 0 if none |
+| `blue_check_request_id` | `uint64` | tally, YankVersion | id of the request that granted the current blue check; 0 if none (YankVersion resets it) |
 
 #### Request
 
@@ -319,13 +319,13 @@ Implemented once in `types/validation.go`, used by both message `ValidateBasic`-
 checks (stateless) and the keeper (stateful, param-dependent).
 
 **Semver** (`ValidateSemver(s, maxBytes)`):
-1. `len(s) <= maxBytes`.
+1. `1 <= len(s) <= maxBytes`.
 2. `semver.StrictNewVersion(s)` from Masterminds must succeed (three numeric parts, no leading `v`, no leading zeros).
 3. `v.Metadata() == ""` (reject build metadata).
 4. Stored string is `s` exactly.
 
 **Magnet** (`ValidateMagnet(s, maxBytes)`):
-1. `len(s) <= maxBytes`.
+1. `utf8.ValidString(s)` and `1 <= len(s) <= maxBytes` (§12: every stored string is UTF-8 checked).
 2. `url.Parse(s)` succeeds and scheme is `magnet`.
 3. At least one `xt` query value matches `^urn:btih:([0-9a-fA-F]{40}|[A-Za-z2-7]{32})$`.
    (Skipped: BitTorrent v2 `urn:btmh`; add when Jetty's torrent client supports v2.)
@@ -339,7 +339,7 @@ checks (stateless) and the keeper (stateful, param-dependent).
 4. If `mime == "image/svg+xml"`, `icon` is valid UTF-8 and, after trimming leading whitespace, starts with `<svg` or `<?xml`.
 5. Any other `mime` is rejected.
 
-**URL** (`ValidateHTTPURL(s, maxBytes)`): empty allowed; otherwise `len <= maxBytes`, parses, scheme is `http` or `https`, host non-empty.
+**URL** (`ValidateHTTPURL(s, maxBytes)`): empty allowed; otherwise `ValidateText(s, maxBytes)` (UTF-8 and length), parses, scheme is `http` or `https`, host non-empty.
 
 **Tags** (`ValidateTags(tags, maxTags, maxTagBytes)`): count, per-tag length, charset `^[a-z0-9-]+$`, no duplicates.
 
@@ -491,18 +491,18 @@ for (expires_at, id) in ExpiryQueue where expires_at <= now, ascending:
             if !version.yanked:               // defensive; yank cancels requests so this holds
                 version.blue_check = true
                 version.blue_check_request_id = id
-            payout(req, yesVoters)
         else: // REVOKE
             version.blue_check = false
             version.blue_check_request_id = 0
         Versions[...] = version
     else:
         req.status = FAILED
-        refund(req)
-    Requests[id] = req
+    Requests[id] = req                        // closeRequest: emits EventRequestResolved
     RequestsByStatus: move OPEN -> req.status
     delete OpenRequestByVersion[(req.app_id, req.version)]
     delete ExpiryQueue[(expires_at, id)]
+    if passed and req.kind == VERIFY: payout(req, yesVoters)
+    if !passed: refund(req)
 ```
 
 `closeRequest` emits `EventRequestResolved{ id, status, yes_power, no_power, total_power }`
