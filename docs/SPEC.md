@@ -382,7 +382,7 @@ aborts the tx with the named error and no state change.
 |-|-|
 | Fields | `owner`, `app_id`, `new_owner` |
 | Signer | `owner` |
-| Checks | app exists; `owner == app.owner`; `new_owner` valid bech32 account address; `new_owner != owner` → `ErrInvalidField` |
+| Checks | app exists; `owner == app.owner`; `new_owner` valid bech32 account address → SDK `ErrInvalidAddress` (same as every malformed signer/address field); `new_owner != owner` → `ErrInvalidField` |
 | State | `app.owner = new_owner`; remove old and add new `AppsByOwner` entry; `updated_height = height`. Open requests are untouched (D21). |
 | Event | `EventAppTransferred{ id, from, to }` |
 
