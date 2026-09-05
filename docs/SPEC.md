@@ -63,7 +63,7 @@ rest of the spec must follow.
 
 | Component | Pinned version |
 |-----------|----------------|
-| Go | 1.26 (module `go 1.26`) |
+| Go | 1.26.5 (module directive `go 1.26.5`, forced by cosmos-sdk v0.54.4) |
 | `github.com/cosmos/cosmos-sdk` | v0.54.4 |
 | `github.com/cometbft/cometbft` | v0.39.4 (as required by SDK v0.54.4) |
 | `github.com/cosmos/ibc-go/v11` | v11.2.0 |

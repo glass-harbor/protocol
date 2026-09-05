@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Go module path `github.com/glass-harbor/protocol`; `go 1.26`.
+- Go module path `github.com/glass-harbor/protocol`; `go 1.26.5` (cosmos-sdk v0.54.4 declares `go 1.26.5`, so `go mod tidy` raises the directive to that; do not fight it).
 - Pinned deps: `github.com/cosmos/cosmos-sdk v0.54.4`, `github.com/cometbft/cometbft v0.39.4`, `github.com/cosmos/ibc-go/v11 v11.2.0`, `github.com/cosmos/cosmos-sdk/store/v2 v2.0.0`, `cosmossdk.io/collections v1.4.0`, `cosmossdk.io/log/v2 v2.1.0`, `cosmossdk.io/math v1.5.3`, `cosmossdk.io/client/v2 v2.11.0`, `github.com/Masterminds/semver/v3 v3.5.0`, `go.uber.org/mock v0.6.0`.
 - Store types import path is `github.com/cosmos/cosmos-sdk/store/v2/types` (NOT `cosmossdk.io/store/types`).
 - Logger import is `cosmossdk.io/log/v2`.
