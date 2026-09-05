@@ -425,7 +425,7 @@ aborts the tx with the named error and no state change.
 | | |
 |-|-|
 | Fields | `owner`, `app_id`, `version`, `escrow` (`optional Coin`) |
-| Escrow rule | `escrow == nil` or `escrow.amount == 0` means no escrow and skips the denom check. If `amount > 0`, `denom` must be `uglass`. Stored as `0uglass` when absent. |
+| Escrow rule | `escrow == nil` or `escrow.amount == 0` means no escrow and skips the denom check. If `amount > 0`, `denom` must be `uglass`. A nil or negative `amount` → `ErrInvalidEscrow`. Stored as `0uglass` when absent. |
 | Signer | `owner` |
 | Checks | app exists; `owner == app.owner`; version exists; `!version.yanked` → `ErrVersionYanked`; `!version.blue_check` → `ErrAlreadyVerified`; no `OpenRequestByVersion` entry → `ErrRequestExists`; escrow rule above → `ErrInvalidEscrow` |
 | Funds | if `escrow.amount > 0`: `SendCoinsFromAccountToModule(owner, "registry", escrow)` |
