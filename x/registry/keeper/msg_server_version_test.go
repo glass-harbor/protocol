@@ -54,15 +54,15 @@ func (s *KeeperTestSuite) TestPublishVersionValidation() {
 		mut func(m *types.MsgPublishVersion)
 		err error
 	}{
-		"duplicate":        {func(m *types.MsgPublishVersion) { m.Version = "1.0.0" }, types.ErrVersionExists},
-		"build metadata":   {func(m *types.MsgPublishVersion) { m.Version = "1.1.0+x" }, types.ErrInvalidSemver},
-		"leading v":        {func(m *types.MsgPublishVersion) { m.Version = "v1.1.0" }, types.ErrInvalidSemver},
-		"bad min jetty":    {func(m *types.MsgPublishVersion) { m.MinJettyVersion = "1" }, types.ErrInvalidSemver},
-		"bad magnet":       {func(m *types.MsgPublishVersion) { m.Magnet = "magnet:?dn=x" }, types.ErrInvalidMagnet},
-		"bad checksum":     {func(m *types.MsgPublishVersion) { m.ChecksumSha256 = "AB" }, types.ErrInvalidChecksum},
-		"zero size":        {func(m *types.MsgPublishVersion) { m.FileSize = 0 }, types.ErrInvalidField},
-		"not owner":        {func(m *types.MsgPublishVersion) { m.Owner = other.String() }, types.ErrUnauthorized},
-		"no app":           {func(m *types.MsgPublishVersion) { m.AppId = 42 }, types.ErrAppNotFound},
+		"duplicate":      {func(m *types.MsgPublishVersion) { m.Version = "1.0.0" }, types.ErrVersionExists},
+		"build metadata": {func(m *types.MsgPublishVersion) { m.Version = "1.1.0+x" }, types.ErrInvalidSemver},
+		"leading v":      {func(m *types.MsgPublishVersion) { m.Version = "v1.1.0" }, types.ErrInvalidSemver},
+		"bad min jetty":  {func(m *types.MsgPublishVersion) { m.MinJettyVersion = "1" }, types.ErrInvalidSemver},
+		"bad magnet":     {func(m *types.MsgPublishVersion) { m.Magnet = "magnet:?dn=x" }, types.ErrInvalidMagnet},
+		"bad checksum":   {func(m *types.MsgPublishVersion) { m.ChecksumSha256 = "AB" }, types.ErrInvalidChecksum},
+		"zero size":      {func(m *types.MsgPublishVersion) { m.FileSize = 0 }, types.ErrInvalidField},
+		"not owner":      {func(m *types.MsgPublishVersion) { m.Owner = other.String() }, types.ErrUnauthorized},
+		"no app":         {func(m *types.MsgPublishVersion) { m.AppId = 42 }, types.ErrAppNotFound},
 	}
 	for name, tc := range cases {
 		s.Run(name, func() {

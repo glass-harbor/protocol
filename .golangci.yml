@@ -26,3 +26,16 @@ linters:
       - ".*\\.pb\\.go$"
       - ".*\\.pb\\.gw\\.go$"
       - "x/registry/testutil/.*"
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/glass-harbor/protocol
+  exclusions:
+    paths:
+      - ".*\\.pb\\.go$"
+      - ".*\\.pb\\.gw\\.go$"
+      - "x/registry/testutil/.*"

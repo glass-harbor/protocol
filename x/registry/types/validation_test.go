@@ -16,16 +16,16 @@ func TestValidateSemver(t *testing.T) {
 		in string
 		ok bool
 	}{
-		"plain":            {"1.0.0", true},
-		"prerelease":       {"1.0.0-beta.1", true},
-		"build metadata":   {"1.0.0+abc", false},
-		"pre+build":        {"1.0.0-rc.1+abc", false},
-		"leading v":        {"v1.0.0", false},
-		"two parts":        {"1.0", false},
-		"leading zero":     {"01.0.0", false},
-		"empty":            {"", false},
-		"too long":         {strings.Repeat("1", 65) + ".0.0", false},
-		"whitespace":       {" 1.0.0", false},
+		"plain":          {"1.0.0", true},
+		"prerelease":     {"1.0.0-beta.1", true},
+		"build metadata": {"1.0.0+abc", false},
+		"pre+build":      {"1.0.0-rc.1+abc", false},
+		"leading v":      {"v1.0.0", false},
+		"two parts":      {"1.0", false},
+		"leading zero":   {"01.0.0", false},
+		"empty":          {"", false},
+		"too long":       {strings.Repeat("1", 65) + ".0.0", false},
+		"whitespace":     {" 1.0.0", false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -44,16 +44,16 @@ func TestValidateMagnet(t *testing.T) {
 		in string
 		ok bool
 	}{
-		"hex btih":          {goodMagnet, true},
-		"base32 btih":       {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U", true},
-		"upper hex":         {"magnet:?xt=urn:btih:C12FE1C06BBA254A9DC9F519B335AA7C1367A88A", true},
-		"second xt":         {"magnet:?xt=urn:sha1:abc&xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", true},
-		"btmh only":         {"magnet:?xt=urn:btmh:1220c12fe1c06bba254a9dc9f519b335aa7c1367a88ac12fe1c06bba254a9dc9f519b3", false},
-		"http scheme":       {"http://example.com/?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", false},
-		"short hash":        {"magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88", false},
-		"no xt":             {"magnet:?dn=foo", false},
-		"empty":             {"", false},
-		"too long":          {goodMagnet + "&dn=" + strings.Repeat("x", 2048), false},
+		"hex btih":    {goodMagnet, true},
+		"base32 btih": {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U", true},
+		"upper hex":   {"magnet:?xt=urn:btih:C12FE1C06BBA254A9DC9F519B335AA7C1367A88A", true},
+		"second xt":   {"magnet:?xt=urn:sha1:abc&xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", true},
+		"btmh only":   {"magnet:?xt=urn:btmh:1220c12fe1c06bba254a9dc9f519b335aa7c1367a88ac12fe1c06bba254a9dc9f519b3", false},
+		"http scheme": {"http://example.com/?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", false},
+		"short hash":  {"magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88", false},
+		"no xt":       {"magnet:?dn=foo", false},
+		"empty":       {"", false},
+		"too long":    {goodMagnet + "&dn=" + strings.Repeat("x", 2048), false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
