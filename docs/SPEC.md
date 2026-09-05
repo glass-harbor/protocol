@@ -426,7 +426,7 @@ aborts the tx with the named error and no state change.
 | Signer | `owner` |
 | Checks | app exists; `owner == app.owner`; version exists; `!version.yanked` → `ErrVersionYanked`; `!version.blue_check` → `ErrAlreadyVerified`; no `OpenRequestByVersion` entry → `ErrRequestExists`; escrow rule above → `ErrInvalidEscrow` |
 | Funds | if `escrow.amount > 0`: `SendCoinsFromAccountToModule(owner, "registry", escrow)` |
-| State | `id = RequestSeq.Next()`; write `Request{ kind: VERIFY, status: OPEN, requester: owner, escrow, submit_height, submit_time, expires_at = submit_time + voting_period }`; add `RequestsByStatus(OPEN, id)`, `OpenRequestByVersion`, `ExpiryQueue(expires_at, id)` |
+| State | `id = RequestSeq.Next()`; write `Request{ kind: VERIFY, status: OPEN, requester: owner, escrow, submit_height, submit_time, expires_at = submit_time + voting_period }`; add `RequestsByStatus(OPEN, id)`, `OpenRequestByVersion`, `ExpiryQueue(expires_at, id)`; `app.updated_height = height` (it is an owner message, §6.2) |
 | Response | `MsgRequestBlueCheckResponse{ id }` |
 | Event | `EventRequestCreated{ id, kind, app_id, version, requester, escrow, expires_at }` |
 
@@ -549,6 +549,9 @@ listed for Jetty's convenience.
 | `Request` | `id` | `request` | `GET /glassharbor/registry/v1/requests/{id}` | |
 | `Requests` | `status` (optional), `pagination` | `requests[]`, `pagination` | `GET /glassharbor/registry/v1/requests?status=` | With status: iterate `RequestsByStatus`. Without: iterate `Requests` by id. |
 | `Votes` | `request_id`, `pagination` | `votes[]`, `pagination` | `GET /glassharbor/registry/v1/requests/{request_id}/votes` | |
+
+REST query parameters for enum fields (`?status=`) take the numeric enum value
+(`?status=2` for PASSED); the gogo-only generation in §3 does not accept enum names there.
 
 Sorting beyond the above (semver order, title search, category filters) is the
 indexer's job (§13).
