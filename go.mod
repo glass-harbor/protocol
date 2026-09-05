@@ -3,6 +3,7 @@ module github.com/glass-harbor/protocol
 go 1.26.5
 
 require (
+	cosmossdk.io/api v1.0.0
 	cosmossdk.io/collections v1.4.0
 	cosmossdk.io/core v1.1.0
 	cosmossdk.io/errors v1.1.0
@@ -22,7 +23,6 @@ require (
 )
 
 require (
-	cosmossdk.io/api v1.0.0 // indirect
 	cosmossdk.io/depinject v1.2.1 // indirect
 	cosmossdk.io/log/v2 v2.1.0 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect

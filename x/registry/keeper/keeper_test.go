@@ -79,6 +79,29 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.querier = keeper.NewQuerier(s.keeper)
 }
 
+// freshSuite returns a new suite with an empty store; BlockedAddr is not stubbed so callers set it.
+func (s *KeeperTestSuite) freshSuite() *KeeperTestSuite {
+	f := &KeeperTestSuite{}
+	f.SetT(s.T())
+	key := storetypes.NewKVStoreKey(types.StoreKey)
+	testCtx := testutil.DefaultContextWithDB(s.T(), key, storetypes.NewTransientStoreKey("transient_fresh"))
+	f.ctx = testCtx.Ctx.WithBlockHeight(10).WithBlockTime(genesisTime)
+	encCfg := moduletestutil.MakeTestEncodingConfig()
+	types.RegisterInterfaces(encCfg.InterfaceRegistry)
+	ctrl := gomock.NewController(s.T())
+	f.authKeeper = registrytestutil.NewMockAccountKeeper(ctrl)
+	f.authKeeper.EXPECT().GetModuleAddress(types.ModuleName).Return(moduleAcc.GetAddress()).AnyTimes()
+	f.authKeeper.EXPECT().AddressCodec().Return(address.NewBech32Codec("cosmos")).AnyTimes()
+	f.bankKeeper = registrytestutil.NewMockBankKeeper(ctrl)
+	f.stakingKeeper = registrytestutil.NewMockStakingKeeper(ctrl)
+	f.stakingKeeper.EXPECT().ValidatorAddressCodec().Return(address.NewBech32Codec("cosmosvaloper")).AnyTimes()
+	f.keeper = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(key), f.authKeeper, f.bankKeeper, f.stakingKeeper,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	f.msgServer = keeper.NewMsgServerImpl(f.keeper)
+	f.querier = keeper.NewQuerier(f.keeper)
+	return f
+}
+
 // bondedValidator returns a bonded validator with the given tokens for mock GetValidator calls.
 func bondedValidator(addr sdk.ValAddress, tokens int64) stakingtypes.Validator {
 	return stakingtypes.Validator{OperatorAddress: addr.String(), Status: stakingtypes.Bonded, Tokens: math.NewInt(tokens)}
