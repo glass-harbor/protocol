@@ -1,0 +1,19 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "gogoproto/gogo.proto";
+import "glassharbor/registry/v1/params.proto";
+import "glassharbor/registry/v1/registry.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+// GenesisState is the registry module genesis (SPEC §6.10).
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  uint64 next_app_id = 2;
+  uint64 next_request_id = 3;
+  repeated App apps = 4 [(gogoproto.nullable) = false];
+  repeated Version versions = 5 [(gogoproto.nullable) = false];
+  repeated Request requests = 6 [(gogoproto.nullable) = false];
+  repeated Vote votes = 7 [(gogoproto.nullable) = false];
+}
