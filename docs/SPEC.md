@@ -174,11 +174,12 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 │   ├── smoke.sh                # §9 end-to-end flow against a running localnet
 │   └── protocgen.sh
 ├── tests/integration/          # message-level integration tests against a real app
-├── Dockerfile
+├── Dockerfile, .dockerignore
 ├── Makefile
 ├── .github/workflows/ci.yml
-├── .golangci.yml
-└── go.mod
+├── .golangci.yml, .gitignore
+├── docs/superpowers/           # design-process artifacts (plans); not part of the build contract
+└── go.mod, go.sum
 ```
 
 Makefile targets: `build`, `install`, `test` (unit + integration), `test-unit`,
