@@ -74,7 +74,7 @@ rest of the spec must follow.
 | `go.uber.org/mock` | v0.6.0 (`mockgen` for keeper test mocks) |
 | `replace` directives | `github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0` and `github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7`, copied from simapp |
 | protobuf tooling | `ghcr.io/cosmos/proto-builder:0.18.1` via Docker, gogo output only (`buf.gen.gogo.yaml`). No pulsar generation; AutoCLI uses the service name strings directly. |
-| Linter | `golangci-lint` v2; `.golangci.yml` copied from the cosmos-sdk repo root at `v0.54.4` (simapp has none of its own), with only local path exclusions, a `gci` prefix for this module, a `misspell` exception for the spec-named `CANCELLED` enum, and the SDK-only build tags removed |
+| Linter | `golangci-lint` v2; `.golangci.yml` copied from the cosmos-sdk repo root at `v0.54.4` (simapp has none of its own), with only these local changes: a two-line provenance comment, path exclusions for this repo's generated code and mocks, a `gci` prefix for this module, a `misspell` exception for the spec-named `CANCELLED` enum, the SDK-only build tags removed, and the SDK file's stray empty `gosec.excludes` entry removed (it fails `golangci-lint config verify`) |
 
 Go module path: `github.com/glass-harbor/protocol`.
 
