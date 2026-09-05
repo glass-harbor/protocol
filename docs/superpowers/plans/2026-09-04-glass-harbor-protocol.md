@@ -187,7 +187,7 @@ install:
 test: test-unit test-integration
 
 test-unit:
-	go test -race -count=1 ./x/... ./app/...
+	go test -race -count=1 $$(go list ./... | grep -v /tests/)
 
 test-integration:
 	go test -race -count=1 ./tests/...
@@ -258,6 +258,7 @@ build/
 *.log
 .harbord-local/
 github.com/
+.superpowers/
 ```
 
 `x/registry/README.md`:
@@ -870,13 +871,13 @@ message EventFeeCharged {
 message EventParamsUpdated {}
 ```
 
-- [ ] **Step 7: Lint and generate**
+- [ ] **Step 7: Generate and lint**
+
+Run: `make proto-gen && go mod tidy && go build ./...` (proto-gen runs `buf dep update` first, which writes `proto/buf.lock`; lint needs that lock, so generate before linting)
+Expected: `x/registry/types/*.pb.go` and `query.pb.gw.go` exist, `proto/buf.lock` is created, build passes.
 
 Run: `make proto-lint`
-Expected: no output, exit 0. Only service and enum declarations need a leading comment (the `COMMENTS` rule with the exceptions above); the proto text in this task already has them.
-
-Run: `make proto-gen && go mod tidy && go build ./...`
-Expected: `x/registry/types/*.pb.go` and `query.pb.gw.go` exist, `proto/buf.lock` is created, build passes. Check `grep -n "REQUEST_STATUS_OPEN RequestStatus" x/registry/types/registry.pb.go` prints one line (confirms enum prefix removal).
+Expected: no output, exit 0. Only service and enum declarations need a leading comment (the `COMMENTS` rule with the exceptions above); the proto text in this task already has them. Check `grep -n "REQUEST_STATUS_OPEN RequestStatus" x/registry/types/registry.pb.go` prints one line (confirms enum prefix removal).
 
 - [ ] **Step 8: Commit**
 
