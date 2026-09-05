@@ -118,3 +118,49 @@ func (k Keeper) refundEscrow(ctx sdk.Context, req types.Request) error {
 	}
 	return ctx.EventManager().EmitTypedEvent(&types.EventEscrowRefunded{RequestId: req.Id, To: req.Requester, Amount: req.Escrow})
 }
+
+// payoutEscrow implements SPEC §6.6 payout: treasury cut first, remainder pro-rata to YES voters, dust to treasury.
+func (k Keeper) payoutEscrow(ctx sdk.Context, req types.Request, voters []yesVoter) error {
+	if !req.Escrow.Amount.IsPositive() {
+		return nil
+	}
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return err
+	}
+	treasuryBz, err := k.authKeeper.AddressCodec().StringToBytes(params.TreasuryAddress)
+	if err != nil {
+		return err
+	}
+	total := req.Escrow.Amount
+	treasuryCut := params.BluecheckTreasuryRate.MulInt(total).TruncateInt()
+	rest := total.Sub(treasuryCut)
+	yesPower := math.ZeroInt()
+	for _, v := range voters {
+		yesPower = yesPower.Add(v.power)
+	}
+	paid := math.ZeroInt()
+	if yesPower.IsPositive() {
+		for _, v := range voters {
+			share := rest.Mul(v.power).Quo(yesPower)
+			if !share.IsPositive() {
+				continue
+			}
+			if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, sdk.AccAddress(v.addr), sdk.NewCoins(sdk.NewCoin(req.Escrow.Denom, share))); err != nil {
+				return err
+			}
+			paid = paid.Add(share)
+		}
+	}
+	toTreasury := treasuryCut.Add(rest.Sub(paid))
+	if toTreasury.IsPositive() {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, treasuryBz, sdk.NewCoins(sdk.NewCoin(req.Escrow.Denom, toTreasury))); err != nil {
+			return err
+		}
+	}
+	return ctx.EventManager().EmitTypedEvent(&types.EventEscrowPaid{
+		RequestId:       req.Id,
+		TreasuryAmount:  sdk.NewCoin(req.Escrow.Denom, toTreasury),
+		ValidatorAmount: sdk.NewCoin(req.Escrow.Denom, paid),
+	})
+}
