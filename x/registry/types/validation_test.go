@@ -122,7 +122,7 @@ func TestValidateText(t *testing.T) {
 }
 
 func TestValidateAppMetadata(t *testing.T) {
-	p := types.Params{Categories: []string{"wallet"}, MaxTitleBytes: 64, MaxDescriptionBytes: 4096, MaxTags: 10, MaxTagBytes: 32, MaxIconBytes: 65536, MaxWebsiteBytes: 256, MaxSourceUrlBytes: 256}
+	p := types.DefaultParams()
 	ok := func() error {
 		return types.ValidateAppMetadata(p, "Jetty Wallet", "desc", nil, "", "https://x.io", "", "wallet", []string{"a"})
 	}
