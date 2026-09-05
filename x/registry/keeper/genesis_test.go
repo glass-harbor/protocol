@@ -93,3 +93,11 @@ func (s *KeeperTestSuite) TestInitGenesisValidatesBeforeWriting() {
 	s.Require().NoError(err)
 	s.Require().Equal(before, after)
 }
+
+func (s *KeeperTestSuite) TestInitGenesisRejectsGovAuthorityTreasury() {
+	fresh := s.freshSuite()
+	fresh.bankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false).AnyTimes()
+	gs := types.DefaultGenesisState()
+	gs.Params.TreasuryAddress = fresh.keeper.GetAuthority()
+	s.Require().ErrorIs(fresh.keeper.InitGenesis(fresh.ctx, gs), types.ErrInvalidParams)
+}

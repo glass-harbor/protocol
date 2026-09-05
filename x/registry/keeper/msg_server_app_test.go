@@ -192,6 +192,12 @@ func (s *KeeperTestSuite) TestUpdateParams() {
 	_, err = s.msgServer.UpdateParams(s.ctx, &types.MsgUpdateParams{Authority: authority, Params: bad})
 	s.Require().ErrorIs(err, types.ErrInvalidParams)
 
+	// the gov account is not bank-blocked but escrow paid to it would strand
+	govTreasury := p
+	govTreasury.TreasuryAddress = authority
+	_, err = s.msgServer.UpdateParams(s.ctx, &types.MsgUpdateParams{Authority: authority, Params: govTreasury})
+	s.Require().ErrorIs(err, types.ErrInvalidParams)
+
 	// blocked treasury address rejected
 	s.bankKeeper = registrytestutil.NewMockBankKeeper(gomock.NewController(s.T()))
 	s.bankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(true).AnyTimes()

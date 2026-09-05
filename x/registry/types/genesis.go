@@ -55,7 +55,8 @@ func (gs GenesisState) Validate() error {
 		}
 		seqs[v.AppId][v.Seq] = v.Version
 	}
-	for id, a := range apps {
+	for _, a := range gs.Apps { // slice order: deterministic error text
+		id := a.Id
 		s := seqs[id]
 		if uint64(len(s)) != a.VersionCount {
 			return fmt.Errorf("app %d: version_count %d != %d versions", id, a.VersionCount, len(s))

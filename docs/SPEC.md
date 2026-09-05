@@ -460,7 +460,7 @@ aborts the tx with the named error and no state change.
 |-|-|
 | Fields | `authority`, `params` |
 | Signer | `authority` |
-| Checks | `sdk.ValidateAuthority(ctx, keeper.authority, msg.authority)` → SDK `ErrUnauthorized` (the consensus-params `authority`, when set, overrides the keeper authority, as in every SDK module); `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address)` → `ErrInvalidParams` (a module-account treasury would make EndBlocker payouts fail) |
+| Checks | `sdk.ValidateAuthority(ctx, keeper.authority, msg.authority)` → SDK `ErrUnauthorized` (the consensus-params `authority`, when set, overrides the keeper authority, as in every SDK module); `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address) && treasury_address != authority` → `ErrInvalidParams` (a blocked module-account treasury would make EndBlocker payouts fail; the gov account is unblocked but funds sent there would strand) |
 | State | overwrite `Params` |
 | Event | `EventParamsUpdated{}` |
 
@@ -612,7 +612,7 @@ message GenesisState {
 `1..version_count`; `latest_version` matches the max-seq version; request ids unique
 and `< next_request_id`; at most one OPEN request per `(app_id, version)`; every request's
 `(app_id, version)` exists; every vote's request exists. `InitGenesis` (which has the bank
-keeper) additionally rejects a blocked (module) `treasury_address`, then rebuilds `AppsByOwner`, `VersionsBySeq`,
+keeper) additionally rejects a blocked (module) or gov-authority `treasury_address`, then rebuilds `AppsByOwner`, `VersionsBySeq`,
 `RequestsByStatus`, `OpenRequestByVersion`, and `ExpiryQueue` (OPEN requests only).
 Export → import → export must be byte-identical (tested).
 
@@ -732,7 +732,7 @@ entrypoint `harbord`, exposes 26656, 26657, 1317, 9090.
 - Icons are stored as opaque bytes; the chain never parses beyond the signature check. Jetty must sanitize SVGs before rendering.
 - Only the app owner can mutate an app; only bonded validators can vote or open revocations; only the gov authority can change params.
 - Escrow accounting is protected by invariant 1 in §6.11.
-- Determinism: iterate votes and yes voters in key order; use `LegacyDec` truncation for all percentage math; never use floats or map iteration in the keeper.
+- Determinism: iterate votes and yes voters in key order; use `LegacyDec` truncation for all percentage math; never use floats or map iteration in the keeper or in any validation it calls (a failed gov proposal stores the error text in state, so even error messages must be identical on every node).
 
 ## 13. Out of scope for this repository
 

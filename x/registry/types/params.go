@@ -51,17 +51,25 @@ func DefaultParams() Params {
 // Validate performs stateless validation (SPEC §6.1). Blocked-address checks need the
 // bank keeper and live in the keeper.
 func (p Params) Validate() error {
-	for name, fee := range map[string]sdk.Coin{"create_app_fee": p.CreateAppFee, "publish_version_fee": p.PublishVersionFee} {
-		if err := fee.Validate(); err != nil {
-			return errorsmod.Wrapf(ErrInvalidParams, "%s: %s", name, err)
+	// Slices, not maps: the first failing field must be the same on every node because a
+	// failed gov proposal stores this error text in state (SPEC §12).
+	for _, f := range []struct {
+		name string
+		fee  sdk.Coin
+	}{{"create_app_fee", p.CreateAppFee}, {"publish_version_fee", p.PublishVersionFee}} {
+		if err := f.fee.Validate(); err != nil {
+			return errorsmod.Wrapf(ErrInvalidParams, "%s: %s", f.name, err)
 		}
-		if fee.Denom != DefaultDenom {
-			return errorsmod.Wrapf(ErrInvalidParams, "%s: denom must be %s", name, DefaultDenom)
+		if f.fee.Denom != DefaultDenom {
+			return errorsmod.Wrapf(ErrInvalidParams, "%s: denom must be %s", f.name, DefaultDenom)
 		}
 	}
-	for name, rate := range map[string]math.LegacyDec{"upload_fee_treasury_rate": p.UploadFeeTreasuryRate, "bluecheck_treasury_rate": p.BluecheckTreasuryRate} {
-		if rate.IsNil() || rate.IsNegative() || rate.GT(math.LegacyOneDec()) {
-			return errorsmod.Wrapf(ErrInvalidParams, "%s must be in [0, 1]", name)
+	for _, r := range []struct {
+		name string
+		rate math.LegacyDec
+	}{{"upload_fee_treasury_rate", p.UploadFeeTreasuryRate}, {"bluecheck_treasury_rate", p.BluecheckTreasuryRate}} {
+		if r.rate.IsNil() || r.rate.IsNegative() || r.rate.GT(math.LegacyOneDec()) {
+			return errorsmod.Wrapf(ErrInvalidParams, "%s must be in [0, 1]", r.name)
 		}
 	}
 	if _, err := sdk.AccAddressFromBech32(p.TreasuryAddress); err != nil {
@@ -83,15 +91,23 @@ func (p Params) Validate() error {
 		}
 		seen[c] = struct{}{}
 	}
-	for name, v := range map[string]uint32{
-		"max_title_bytes": p.MaxTitleBytes, "max_description_bytes": p.MaxDescriptionBytes,
-		"max_tags": p.MaxTags, "max_tag_bytes": p.MaxTagBytes, "max_icon_bytes": p.MaxIconBytes,
-		"max_magnet_bytes": p.MaxMagnetBytes, "max_min_jetty_version_bytes": p.MaxMinJettyVersionBytes,
-		"max_website_bytes": p.MaxWebsiteBytes, "max_source_url_bytes": p.MaxSourceUrlBytes,
-		"max_version_bytes": p.MaxVersionBytes,
+	for _, m := range []struct {
+		name string
+		v    uint32
+	}{
+		{"max_title_bytes", p.MaxTitleBytes},
+		{"max_description_bytes", p.MaxDescriptionBytes},
+		{"max_tags", p.MaxTags},
+		{"max_tag_bytes", p.MaxTagBytes},
+		{"max_icon_bytes", p.MaxIconBytes},
+		{"max_magnet_bytes", p.MaxMagnetBytes},
+		{"max_min_jetty_version_bytes", p.MaxMinJettyVersionBytes},
+		{"max_website_bytes", p.MaxWebsiteBytes},
+		{"max_source_url_bytes", p.MaxSourceUrlBytes},
+		{"max_version_bytes", p.MaxVersionBytes},
 	} {
-		if v == 0 {
-			return errorsmod.Wrapf(ErrInvalidParams, "%s must be > 0", name)
+		if m.v == 0 {
+			return errorsmod.Wrapf(ErrInvalidParams, "%s must be > 0", m.name)
 		}
 	}
 	return nil

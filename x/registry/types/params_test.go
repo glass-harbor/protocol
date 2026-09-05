@@ -56,3 +56,15 @@ func TestParamsValidate(t *testing.T) {
 	require.NoError(t, mut(func(p *types.Params) { p.CreateAppFee = sdk.NewInt64Coin("uglass", 0) }).Validate())
 	require.NoError(t, mut(func(p *types.Params) { p.UploadFeeTreasuryRate = math.LegacyOneDec() }).Validate())
 }
+
+// SPEC §12: a failed gov proposal stores the error text in state, so the first reported
+// field must not depend on map iteration order.
+func TestParamsValidateErrorIsDeterministic(t *testing.T) {
+	p := types.DefaultParams()
+	p.MaxTitleBytes, p.MaxTagBytes, p.MaxIconBytes = 0, 0, 0
+	first := p.Validate().Error()
+	for range 64 {
+		require.Equal(t, first, p.Validate().Error())
+	}
+	require.Contains(t, first, "max_title_bytes")
+}
