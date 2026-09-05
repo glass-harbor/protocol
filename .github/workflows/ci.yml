@@ -1,0 +1,40 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - run: go build ./...
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+      - run: make proto-lint
+      - run: make proto-check
+      - run: make test
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y jq
+      - run: make build
+      - run: ./scripts/localnet.sh init
+      - run: (./build/harbord start --home ~/.harbord-local > localnet.log 2>&1 &) && sleep 5
+      - run: ./scripts/smoke.sh
+      - if: failure()
+        run: tail -100 localnet.log
+      - run: docker build -t glassharbor/harbord:ci .
