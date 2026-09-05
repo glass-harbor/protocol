@@ -4,7 +4,7 @@ set -euo pipefail
 
 HOME_DIR="${HARBORD_HOME:-$HOME/.harbord-local}"
 CHAIN_ID="glassharbor-local-1"
-BIN="${HARBORD_BIN:-$(cd "$(dirname "$0")/.." && pwd)/build/harbord}"
+BIN="${HARBORD_BIN:-$(command -v harbord || echo "$(cd "$(dirname "$0")/.." && pwd)/build/harbord")}"
 KR=(--keyring-backend test --home "$HOME_DIR")
 TXF=(--chain-id "$CHAIN_ID" --yes --gas 400000 --fees 1000uglass --output json "${KR[@]}")
 MAGNET="magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=smoke.zip"

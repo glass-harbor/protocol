@@ -4,7 +4,7 @@ set -euo pipefail
 
 HOME_DIR="${HARBORD_HOME:-$HOME/.harbord-local}"
 CHAIN_ID="glassharbor-local-1"
-BIN="${HARBORD_BIN:-$(cd "$(dirname "$0")/.." && pwd)/build/harbord}"
+BIN="${HARBORD_BIN:-$(command -v harbord || echo "$(cd "$(dirname "$0")/.." && pwd)/build/harbord")}"
 KR=(--keyring-backend test --home "$HOME_DIR")
 
 init() {
