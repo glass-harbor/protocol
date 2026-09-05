@@ -988,7 +988,7 @@ func TestValidateMagnet(t *testing.T) {
 		ok bool
 	}{
 		"hex btih":          {goodMagnet, true},
-		"base32 btih":       {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43UOR2HK3DF", true},
+		"base32 btih":       {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U", true},
 		"upper hex":         {"magnet:?xt=urn:btih:C12FE1C06BBA254A9DC9F519B335AA7C1367A88A", true},
 		"second xt":         {"magnet:?xt=urn:sha1:abc&xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", true},
 		"btmh only":         {"magnet:?xt=urn:btmh:1220c12fe1c06bba254a9dc9f519b335aa7c1367a88ac12fe1c06bba254a9dc9f519b3", false},
