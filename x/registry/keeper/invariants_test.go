@@ -26,6 +26,12 @@ func (s *KeeperTestSuite) TestInvariantsHoldAndDetectDrift() {
 	s.Require().Error(s.keeper.CheckInvariants(s.ctx))
 	s.Require().NoError(s.keeper.ExpiryQueue.Remove(s.ctx, collections.Join(expiry, uint64(999))))
 
+	// dangling OpenRequestByVersion entry
+	s.Require().NoError(s.keeper.OpenRequestByVersion.Set(s.ctx, collections.Join(id, "9.9.9"), uint64(999)))
+	s.Require().Error(s.keeper.CheckInvariants(s.ctx))
+	s.Require().NoError(s.keeper.OpenRequestByVersion.Remove(s.ctx, collections.Join(id, "9.9.9")))
+	s.Require().NoError(s.keeper.CheckInvariants(s.ctx))
+
 	// latest_version drift
 	app, _ := s.keeper.Apps.Get(s.ctx, id)
 	app.LatestVersion = "9.9.9"
