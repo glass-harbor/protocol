@@ -95,7 +95,7 @@ func (k Keeper) resolveRequest(ctx sdk.Context, id uint64) error {
 func (k Keeper) tally(ctx sdk.Context, id uint64) (yes, no, total math.Int, voters []yesVoter, err error) {
 	total, err = k.stakingKeeper.TotalValidatorPower(ctx)
 	if err != nil {
-		return
+		return yes, no, total, voters, err
 	}
 	yes, no = math.ZeroInt(), math.ZeroInt()
 	rng := collections.NewPrefixedPairRange[uint64, sdk.ValAddress](id)
@@ -120,5 +120,5 @@ func (k Keeper) tally(ctx sdk.Context, id uint64) (yes, no, total math.Int, vote
 		}
 		return false, nil
 	})
-	return
+	return yes, no, total, voters, err
 }
