@@ -160,3 +160,64 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	}
 	return &types.MsgUpdateParamsResponse{}, nil
 }
+
+func (m msgServer) PublishVersion(goCtx context.Context, msg *types.MsgPublishVersion) (*types.MsgPublishVersionResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	app, ownerBz, err := m.ownedApp(ctx, msg.AppId, msg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	params, err := m.Params.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := types.ValidateSemver(msg.Version, params.MaxVersionBytes); err != nil {
+		return nil, errorsmod.Wrap(err, "version")
+	}
+	if msg.MinJettyVersion != "" {
+		if err := types.ValidateSemver(msg.MinJettyVersion, params.MaxMinJettyVersionBytes); err != nil {
+			return nil, errorsmod.Wrap(err, "min_jetty_version")
+		}
+	}
+	if err := types.ValidateMagnet(msg.Magnet, params.MaxMagnetBytes); err != nil {
+		return nil, err
+	}
+	if err := types.ValidateChecksum(msg.ChecksumSha256); err != nil {
+		return nil, err
+	}
+	if msg.FileSize == 0 {
+		return nil, errorsmod.Wrap(types.ErrInvalidField, "file_size must be > 0")
+	}
+	exists, err := m.Versions.Has(ctx, collections.Join(app.Id, msg.Version))
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, errorsmod.Wrapf(types.ErrVersionExists, "%d/%s", app.Id, msg.Version)
+	}
+	if err := m.chargeFee(ctx, params, ownerBz, params.PublishVersionFee, "publish_version"); err != nil {
+		return nil, err
+	}
+	seq := app.VersionCount + 1
+	v := types.Version{
+		AppId: app.Id, Version: msg.Version, Seq: seq, Magnet: msg.Magnet, ChecksumSha256: msg.ChecksumSha256,
+		FileSize: msg.FileSize, MinJettyVersion: msg.MinJettyVersion, Publisher: app.Owner,
+		PublishHeight: ctx.BlockHeight(), PublishTime: ctx.BlockTime(),
+	}
+	if err := m.Versions.Set(ctx, collections.Join(app.Id, msg.Version), v); err != nil {
+		return nil, err
+	}
+	if err := m.VersionsBySeq.Set(ctx, collections.Join(app.Id, seq), msg.Version); err != nil {
+		return nil, err
+	}
+	app.VersionCount = seq
+	app.LatestVersion = msg.Version
+	app.UpdatedHeight = ctx.BlockHeight()
+	if err := m.Apps.Set(ctx, app.Id, app); err != nil {
+		return nil, err
+	}
+	if err := ctx.EventManager().EmitTypedEvent(&types.EventVersionPublished{AppId: app.Id, Version: msg.Version, Seq: seq, Publisher: app.Owner}); err != nil {
+		return nil, err
+	}
+	return &types.MsgPublishVersionResponse{}, nil
+}

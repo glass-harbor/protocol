@@ -24,10 +24,9 @@ import (
 	"github.com/glass-harbor/protocol/x/registry/types"
 )
 
-//nolint:unused // goodMagnet is consumed by Tasks 7-8's request/version tests
 const goodMagnet = "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
 
-//nolint:unused // valAddr, valAddr2, checksum are consumed by Tasks 7-8's test cases
+//nolint:unused // valAddr, valAddr2 are consumed by Tasks 8's vote/blue-check tests
 var (
 	moduleAcc   = authtypes.NewEmptyModuleAccount(types.ModuleName)
 	owner       = sdk.AccAddress("owner_______________")

@@ -13,10 +13,6 @@ import (
 	"github.com/glass-harbor/protocol/x/registry/types"
 )
 
-func (m msgServer) PublishVersion(ctx context.Context, msg *types.MsgPublishVersion) (*types.MsgPublishVersionResponse, error) {
-	return nil, errorsmod.Wrap(sdkerrors.ErrNotSupported, "not implemented")
-}
-
 func (m msgServer) YankVersion(ctx context.Context, msg *types.MsgYankVersion) (*types.MsgYankVersionResponse, error) {
 	return nil, errorsmod.Wrap(sdkerrors.ErrNotSupported, "not implemented")
 }
