@@ -150,7 +150,7 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 
 ```
 .
-├── app/                        # app.go, app_config.go, export.go, genesis.go, upgrades.go
+├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go
 ├── cmd/harbord/                # main.go, cmd/root.go (simapp-style)
 ├── docs/SPEC.md                # this file
 ├── proto/glassharbor/registry/v1/
@@ -457,7 +457,7 @@ aborts the tx with the named error and no state change.
 |-|-|
 | Fields | `authority`, `params` |
 | Signer | `authority` |
-| Checks | `authority == keeper.authority` (gov module address) → `ErrUnauthorized`; `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address)` → `ErrInvalidParams` (a module-account treasury would make EndBlocker payouts panic) |
+| Checks | `sdk.ValidateAuthority(ctx, keeper.authority, msg.authority)` → SDK `ErrUnauthorized` (the consensus-params `authority`, when set, overrides the keeper authority, as in every SDK module); `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address)` → `ErrInvalidParams` (a module-account treasury would make EndBlocker payouts fail) |
 | State | overwrite `Params` |
 | Event | `EventParamsUpdated{}` |
 
@@ -500,8 +500,11 @@ for (expires_at, id) in ExpiryQueue where expires_at <= now, ascending:
     RequestsByStatus: move OPEN -> req.status
     delete OpenRequestByVersion[(req.app_id, req.version)]
     delete ExpiryQueue[(expires_at, id)]
-    emit EventRequestResolved{ id, status, yes_power, no_power, total_power }
 ```
+
+`closeRequest` emits `EventRequestResolved{ id, status, yes_power, no_power, total_power }`
+as part of moving the request out of OPEN, so it precedes `EventEscrowPaid` /
+`EventEscrowRefunded` (and, on yank, precedes `EventVersionYanked`).
 
 `payout(req, yesVoters)` when `req.escrow.amount > 0`:
 
@@ -602,8 +605,8 @@ message GenesisState {
 `app_id` exists and `(app_id, version)` unique; `seq` values per app are exactly
 `1..version_count`; `latest_version` matches the max-seq version; request ids unique
 and `< next_request_id`; at most one OPEN request per `(app_id, version)`; every request's
-`(app_id, version)` exists; every vote's request exists; `treasury_address` is not a
-blocked (module) address. `InitGenesis` rebuilds `AppsByOwner`, `VersionsBySeq`,
+`(app_id, version)` exists; every vote's request exists. `InitGenesis` (which has the bank
+keeper) additionally rejects a blocked (module) `treasury_address`, then rebuilds `AppsByOwner`, `VersionsBySeq`,
 `RequestsByStatus`, `OpenRequestByVersion`, and `ExpiryQueue` (OPEN requests only).
 Export → import → export must be byte-identical (tested).
 
@@ -706,7 +709,8 @@ treasury balances increased by the expected amounts.
 3. `buf lint` and `make proto-check` (regenerate, `git diff --exit-code`)
 4. `make test`
 5. `docker build .`
-6. Start localnet in the container, run `scripts/smoke.sh`.
+6. Build and start a localnet on the CI host, run `scripts/smoke.sh` against it (the scripts
+   also work inside the image: `BIN` falls back to `command -v harbord`).
 
 `Dockerfile`: multi-stage, `golang:1.26` builder, distroless or alpine runtime,
 entrypoint `harbord`, exposes 26656, 26657, 1317, 9090.
