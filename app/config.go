@@ -13,13 +13,15 @@ const (
 	Bech32Prefix = "glass"
 	// BondDenom is the staking, fee, and escrow denom.
 	BondDenom = "uglass"
+	// DisplayDenom is the human-facing denom (exponent 6) in the bank denom metadata.
+	DisplayDenom = "GLASS"
 	// CoinType is the BIP-44 coin type.
 	CoinType = 118
 )
 
 var setPrefixesOnce sync.Once
 
-// SetAddressPrefixes configures the global SDK config for glass/glassvaloper/glasscons prefixes
+// SetAddressPrefixes configures the global SDK config for glass/glassvaloper/glassvalcons prefixes
 // and makes uglass the default bond denom used by module DefaultParams and test helpers.
 // It is idempotent and MUST run before any keeper or codec is constructed.
 func SetAddressPrefixes() {

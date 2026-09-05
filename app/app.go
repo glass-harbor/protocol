@@ -318,6 +318,9 @@ func NewApp(
 		genutiltypes.ModuleName: genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
 		govtypes.ModuleName:     gov.NewAppModuleBasic([]govclient.ProposalHandler{}),
 	})
+	// the native denom metadata must reach `harbord init`, which builds genesis from the
+	// basic manager and never sees App.DefaultGenesis (SPEC §4.1)
+	app.BasicModuleManager[banktypes.ModuleName] = bankWithDenomMetadata{app.BasicModuleManager[banktypes.ModuleName]}
 	app.BasicModuleManager.RegisterLegacyAminoCodec(legacyAmino)
 	app.BasicModuleManager.RegisterInterfaces(interfaceRegistry)
 
@@ -475,6 +478,52 @@ func (app *App) AutoCliOpts() autocli.AppOptions {
 		ValidatorAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
+}
+
+// DefaultDenomMetadata is the bank denom metadata for the native token (SPEC §4.1).
+func DefaultDenomMetadata() banktypes.Metadata {
+	return banktypes.Metadata{
+		Description: "The native token of Glass Harbor Protocol",
+		Base:        BondDenom,
+		Display:     DisplayDenom,
+		Name:        "Glass",
+		Symbol:      DisplayDenom,
+		DenomUnits: []*banktypes.DenomUnit{
+			{Denom: BondDenom, Exponent: 0},
+			{Denom: DisplayDenom, Exponent: 6},
+		},
+	}
+}
+
+// bankWithDenomMetadata wraps the bank module's basics so its default genesis carries the
+// uglass/GLASS denom metadata. It sits in BasicModuleManager rather than in
+// App.DefaultGenesis because `harbord init` builds genesis from the basic manager alone.
+type bankWithDenomMetadata struct {
+	module.AppModuleBasic
+}
+
+var (
+	_ module.AppModuleBasic   = bankWithDenomMetadata{}
+	_ module.HasGenesisBasics = bankWithDenomMetadata{}
+)
+
+func (b bankWithDenomMetadata) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+	var gs banktypes.GenesisState
+	cdc.MustUnmarshalJSON(b.inner().DefaultGenesis(cdc), &gs)
+	gs.DenomMetadata = append(gs.DenomMetadata, DefaultDenomMetadata())
+	return cdc.MustMarshalJSON(&gs)
+}
+
+func (b bankWithDenomMetadata) ValidateGenesis(cdc codec.JSONCodec, txCfg client.TxEncodingConfig, bz json.RawMessage) error {
+	return b.inner().ValidateGenesis(cdc, txCfg, bz)
+}
+
+func (b bankWithDenomMetadata) inner() module.HasGenesisBasics {
+	inner, ok := b.AppModuleBasic.(module.HasGenesisBasics)
+	if !ok {
+		panic("bank module basics do not implement module.HasGenesisBasics")
+	}
+	return inner
 }
 
 // DefaultGenesis returns the default genesis of every module.
