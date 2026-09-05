@@ -698,7 +698,11 @@ treasury balances increased by the expected amounts.
 | Smoke | `scripts/smoke.sh` | bash + `harbord` CLI | §9 flow against a running localnet |
 
 `make test` runs unit + integration. Coverage target for `x/registry/keeper` and
-`x/registry/types`: >= 85%.
+`x/registry/types`: >= 85%, measured over hand-written files (generated `*.pb.go` and
+`*.pb.gw.go` excluded; the raw package number for `types` is dominated by generated code).
+`MsgUpdateParams` is gov-authority only and cannot be signed by a test key, so its
+integration coverage runs through the keeper msg server against the real bank keeper
+rather than through `FinalizeBlock`.
 
 ## 11. CI and packaging
 
@@ -710,7 +714,8 @@ treasury balances increased by the expected amounts.
 4. `make test`
 5. `docker build .`
 6. Build and start a localnet on the CI host, run `scripts/smoke.sh` against it (the scripts
-   also work inside the image: `BIN` falls back to `command -v harbord`).
+   also work inside the image: `BIN` is `HARBORD_BIN`, else `harbord` on `PATH`, else
+   `build/harbord` next to the repo).
 
 `Dockerfile`: multi-stage, `golang:1.26` builder, distroless or alpine runtime,
 entrypoint `harbord`, exposes 26656, 26657, 1317, 9090.
