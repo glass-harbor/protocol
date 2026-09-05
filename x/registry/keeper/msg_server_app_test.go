@@ -104,7 +104,7 @@ func (s *KeeperTestSuite) TestTransferApp() {
 	_, err := s.msgServer.TransferApp(s.ctx, &types.MsgTransferApp{Owner: owner.String(), AppId: id, NewOwner: owner.String()})
 	s.Require().ErrorIs(err, types.ErrInvalidField)
 	_, err = s.msgServer.TransferApp(s.ctx, &types.MsgTransferApp{Owner: owner.String(), AppId: id, NewOwner: "bad"})
-	s.Require().Error(err)
+	s.Require().ErrorIs(err, sdkerrors.ErrInvalidAddress)
 
 	_, err = s.msgServer.TransferApp(s.ctx, &types.MsgTransferApp{Owner: owner.String(), AppId: id, NewOwner: other.String()})
 	s.Require().NoError(err)
