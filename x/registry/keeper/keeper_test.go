@@ -26,7 +26,6 @@ import (
 
 const goodMagnet = "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
 
-//nolint:unused // valAddr, valAddr2 are consumed by Tasks 8's vote/blue-check tests
 var (
 	moduleAcc   = authtypes.NewEmptyModuleAccount(types.ModuleName)
 	owner       = sdk.AccAddress("owner_______________")
@@ -81,8 +80,6 @@ func (s *KeeperTestSuite) SetupTest() {
 }
 
 // bondedValidator returns a bonded validator with the given tokens for mock GetValidator calls.
-//
-//nolint:unused // consumed by Tasks 7-8's vote/blue-check tests
 func bondedValidator(addr sdk.ValAddress, tokens int64) stakingtypes.Validator {
 	return stakingtypes.Validator{OperatorAddress: addr.String(), Status: stakingtypes.Bonded, Tokens: math.NewInt(tokens)}
 }

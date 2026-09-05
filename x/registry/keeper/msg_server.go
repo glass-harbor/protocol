@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
@@ -220,4 +221,151 @@ func (m msgServer) PublishVersion(goCtx context.Context, msg *types.MsgPublishVe
 		return nil, err
 	}
 	return &types.MsgPublishVersionResponse{}, nil
+}
+
+func (m msgServer) RequestBlueCheck(goCtx context.Context, msg *types.MsgRequestBlueCheck) (*types.MsgRequestBlueCheckResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	app, ownerBz, err := m.ownedApp(ctx, msg.AppId, msg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	v, err := m.getVersion(ctx, app.Id, msg.Version)
+	if err != nil {
+		return nil, err
+	}
+	if v.Yanked {
+		return nil, errorsmod.Wrapf(types.ErrVersionYanked, "%d/%s", app.Id, msg.Version)
+	}
+	if v.BlueCheck {
+		return nil, errorsmod.Wrapf(types.ErrAlreadyVerified, "%d/%s", app.Id, msg.Version)
+	}
+	escrow := zeroEscrow()
+	if msg.Escrow != nil && !msg.Escrow.Amount.IsNil() && !msg.Escrow.Amount.IsZero() {
+		if err := msg.Escrow.Validate(); err != nil {
+			return nil, errorsmod.Wrap(types.ErrInvalidEscrow, err.Error())
+		}
+		if msg.Escrow.Denom != types.DefaultDenom {
+			return nil, errorsmod.Wrapf(types.ErrInvalidEscrow, "denom must be %s", types.DefaultDenom)
+		}
+		escrow = *msg.Escrow
+	}
+	// check for an existing open request before moving funds
+	if has, err := m.OpenRequestByVersion.Has(ctx, collections.Join(app.Id, msg.Version)); err != nil {
+		return nil, err
+	} else if has {
+		return nil, errorsmod.Wrapf(types.ErrRequestExists, "%d/%s", app.Id, msg.Version)
+	}
+	if escrow.Amount.IsPositive() {
+		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, ownerBz, types.ModuleName, sdk.NewCoins(escrow)); err != nil {
+			return nil, err
+		}
+	}
+	id, err := m.openRequest(ctx, types.REQUEST_KIND_VERIFY, app.Id, msg.Version, app.Owner, escrow)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgRequestBlueCheckResponse{Id: id}, nil
+}
+
+func (m msgServer) RequestRevocation(goCtx context.Context, msg *types.MsgRequestRevocation) (*types.MsgRequestRevocationResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	valBz, err := m.bondedValidator(ctx, msg.Validator)
+	if err != nil {
+		return nil, err
+	}
+	if has, err := m.Apps.Has(ctx, msg.AppId); err != nil {
+		return nil, err
+	} else if !has {
+		return nil, errorsmod.Wrapf(types.ErrAppNotFound, "id %d", msg.AppId)
+	}
+	v, err := m.getVersion(ctx, msg.AppId, msg.Version)
+	if err != nil {
+		return nil, err
+	}
+	if !v.BlueCheck {
+		return nil, errorsmod.Wrapf(types.ErrNotVerified, "%d/%s", msg.AppId, msg.Version)
+	}
+	requester, err := m.authKeeper.AddressCodec().BytesToString(valBz)
+	if err != nil {
+		return nil, err
+	}
+	id, err := m.openRequest(ctx, types.REQUEST_KIND_REVOKE, msg.AppId, msg.Version, requester, zeroEscrow())
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgRequestRevocationResponse{Id: id}, nil
+}
+
+func (m msgServer) Vote(goCtx context.Context, msg *types.MsgVote) (*types.MsgVoteResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg.Option != types.VOTE_OPTION_YES && msg.Option != types.VOTE_OPTION_NO {
+		return nil, errorsmod.Wrapf(types.ErrInvalidField, "option %s", msg.Option)
+	}
+	req, err := m.Requests.Get(ctx, msg.RequestId)
+	if errors.Is(err, collections.ErrNotFound) {
+		return nil, errorsmod.Wrapf(types.ErrRequestNotFound, "id %d", msg.RequestId)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if req.Status != types.REQUEST_STATUS_OPEN {
+		return nil, errorsmod.Wrapf(types.ErrRequestNotOpen, "id %d is %s", req.Id, req.Status)
+	}
+	valBz, err := m.bondedValidator(ctx, msg.Validator)
+	if err != nil {
+		return nil, err
+	}
+	valoper, err := m.stakingKeeper.ValidatorAddressCodec().BytesToString(valBz)
+	if err != nil {
+		return nil, err
+	}
+	vote := types.Vote{RequestId: req.Id, Validator: valoper, Option: msg.Option, Height: ctx.BlockHeight()}
+	if err := m.Votes.Set(ctx, collections.Join(req.Id, valBz), vote); err != nil {
+		return nil, err
+	}
+	if err := ctx.EventManager().EmitTypedEvent(&types.EventVoted{RequestId: req.Id, Validator: valoper, Option: msg.Option}); err != nil {
+		return nil, err
+	}
+	return &types.MsgVoteResponse{}, nil
+}
+
+func (m msgServer) YankVersion(goCtx context.Context, msg *types.MsgYankVersion) (*types.MsgYankVersionResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	app, _, err := m.ownedApp(ctx, msg.AppId, msg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	v, err := m.getVersion(ctx, app.Id, msg.Version)
+	if err != nil {
+		return nil, err
+	}
+	if v.Yanked {
+		return nil, errorsmod.Wrapf(types.ErrVersionYanked, "%d/%s already yanked", app.Id, msg.Version)
+	}
+	v.Yanked, v.BlueCheck, v.BlueCheckRequestId = true, false, 0
+	if err := m.Versions.Set(ctx, collections.Join(app.Id, msg.Version), v); err != nil {
+		return nil, err
+	}
+	if reqID, err := m.OpenRequestByVersion.Get(ctx, collections.Join(app.Id, msg.Version)); err == nil {
+		req, err := m.Requests.Get(ctx, reqID)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.closeRequest(ctx, &req, types.REQUEST_STATUS_CANCELLED); err != nil {
+			return nil, err
+		}
+		if err := m.refundEscrow(ctx, req); err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(err, collections.ErrNotFound) {
+		return nil, err
+	}
+	app.UpdatedHeight = ctx.BlockHeight()
+	if err := m.Apps.Set(ctx, app.Id, app); err != nil {
+		return nil, err
+	}
+	if err := ctx.EventManager().EmitTypedEvent(&types.EventVersionYanked{AppId: app.Id, Version: msg.Version}); err != nil {
+		return nil, err
+	}
+	return &types.MsgYankVersionResponse{}, nil
 }
