@@ -41,6 +41,10 @@ func TestDefaultGenesisValid(t *testing.T) {
 	require.NoError(t, gs.Validate())
 	require.Equal(t, uint64(1), gs.NextAppId)
 	require.Equal(t, uint64(1), gs.NextRequestId)
+	gs.NextAppId = 0
+	require.Error(t, gs.Validate())
+	gs.NextAppId, gs.NextRequestId = 1, 0
+	require.Error(t, gs.Validate())
 }
 
 func TestGenesisValidate(t *testing.T) {

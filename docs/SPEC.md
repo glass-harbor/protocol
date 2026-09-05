@@ -41,7 +41,7 @@ rest of the spec must follow.
 | D15 | Yank | Owner can set an irreversible `yanked` flag on a version. Yanking clears any blue check and cancels (refunds) any open request on that version. Yanked versions cannot be verified. |
 | D16 | Blue check scope | Requested by the app owner, on a specific version. |
 | D17 | Voting | Yes/No votes by bonded validators, signed by the operator key. Vote may be changed while the request is open. |
-| D18 | Threshold | Passes if `yes_power * 3 >= total_bonded_power * 2`, measured once, at expiry. |
+| D18 | Threshold | Passes if `total_bonded_power > 0 && yes_power * 3 >= total_bonded_power * 2`, measured once, at expiry. |
 | D19 | Resolution timing | Tally only at expiry (`voting_period` after submission). No early pass or fail. |
 | D20 | Escrow payout | On pass: treasury cut first, remainder split among Yes voters proportional to bonded power at tally. Dust to treasury. |
 | D21 | Escrow refund | On fail or cancel: full escrow returned to the stored `requester`, even if the app has since been transferred. |
@@ -74,7 +74,7 @@ rest of the spec must follow.
 | `go.uber.org/mock` | v0.6.0 (`mockgen` for keeper test mocks) |
 | `replace` directives | `github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0` and `github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7`, copied from simapp |
 | protobuf tooling | `ghcr.io/cosmos/proto-builder:0.18.1` via Docker, gogo output only (`buf.gen.gogo.yaml`). No pulsar generation; AutoCLI uses the service name strings directly. |
-| Linter | `golangci-lint`, config copied from simapp |
+| Linter | `golangci-lint` v2; `.golangci.yml` copied from the cosmos-sdk repo root at `v0.54.4` (simapp has none of its own), with only these local changes: a two-line provenance comment, path exclusions for this repo's generated code and mocks, a `gci` prefix for this module, a `misspell` exception for the spec-named `CANCELLED` enum, the SDK-only build tags removed, and the SDK file's stray empty `gosec.excludes` entry removed (it fails `golangci-lint config verify`) |
 
 Go module path: `github.com/glass-harbor/protocol`.
 
@@ -150,8 +150,8 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 
 ```
 .
-├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go
-├── cmd/harbord/                # main.go, cmd/root.go (simapp-style)
+├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go, app_test.go
+├── cmd/harbord/                # main.go, cmd/root.go, cmd/commands.go (simapp-style)
 ├── docs/SPEC.md                # this file
 ├── proto/glassharbor/registry/v1/
 │   ├── registry.proto          # App, Version, Request, Vote, enums
@@ -164,20 +164,23 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 ├── x/registry/
 │   ├── module.go               # AppModule (genesis, services, EndBlock)
 │   ├── autocli.go
-│   ├── keeper/                 # keeper.go, msg_server.go, grpc_query.go, fees.go, abci.go,
-│   │                           # genesis.go, + _test.go
+│   ├── README.md               # short module overview for readers of the code
+│   ├── keeper/                 # keeper.go, msg_server.go, app.go/version.go/request.go (handler helpers),
+│   │                           # grpc_query.go, fees.go, abci.go, genesis.go, invariants.go (§6.11 test helper), + _test.go
 │   ├── types/                  # generated pb, keys.go, errors.go, codec.go, params.go,
 │   │                           # genesis.go, validation.go, expected_keepers.go
 │   └── testutil/               # gomock mocks generated from expected_keepers.go
 ├── scripts/
 │   ├── localnet.sh             # init + start single validator
+│   ├── smoke.sh                # §9 end-to-end flow against a running localnet
 │   └── protocgen.sh
 ├── tests/integration/          # message-level integration tests against a real app
-├── Dockerfile
+├── Dockerfile, .dockerignore
 ├── Makefile
 ├── .github/workflows/ci.yml
-├── .golangci.yml
-└── go.mod
+├── .golangci.yml, .gitignore
+├── docs/superpowers/           # design-process artifacts (plans); not part of the build contract
+└── go.mod, go.sum
 ```
 
 Makefile targets: `build`, `install`, `test` (unit + integration), `test-unit`,
@@ -255,7 +258,7 @@ new create/update calls that use it.
 | `publish_time` | `google.protobuf.Timestamp` | no | block time |
 | `yanked` | `bool` | YankVersion (false → true only) | |
 | `blue_check` | `bool` | tally, YankVersion | |
-| `blue_check_request_id` | `uint64` | tally | id of the request that granted the current blue check; 0 if none |
+| `blue_check_request_id` | `uint64` | tally, YankVersion | id of the request that granted the current blue check; 0 if none (YankVersion resets it) |
 
 #### Request
 
@@ -316,13 +319,13 @@ Implemented once in `types/validation.go`, used by both message `ValidateBasic`-
 checks (stateless) and the keeper (stateful, param-dependent).
 
 **Semver** (`ValidateSemver(s, maxBytes)`):
-1. `len(s) <= maxBytes`.
+1. `1 <= len(s) <= maxBytes`.
 2. `semver.StrictNewVersion(s)` from Masterminds must succeed (three numeric parts, no leading `v`, no leading zeros).
 3. `v.Metadata() == ""` (reject build metadata).
 4. Stored string is `s` exactly.
 
 **Magnet** (`ValidateMagnet(s, maxBytes)`):
-1. `len(s) <= maxBytes`.
+1. `utf8.ValidString(s)` and `1 <= len(s) <= maxBytes` (§12: every stored string is UTF-8 checked).
 2. `url.Parse(s)` succeeds and scheme is `magnet`.
 3. At least one `xt` query value matches `^urn:btih:([0-9a-fA-F]{40}|[A-Za-z2-7]{32})$`.
    (Skipped: BitTorrent v2 `urn:btmh`; add when Jetty's torrent client supports v2.)
@@ -336,7 +339,7 @@ checks (stateless) and the keeper (stateful, param-dependent).
 4. If `mime == "image/svg+xml"`, `icon` is valid UTF-8 and, after trimming leading whitespace, starts with `<svg` or `<?xml`.
 5. Any other `mime` is rejected.
 
-**URL** (`ValidateHTTPURL(s, maxBytes)`): empty allowed; otherwise `len <= maxBytes`, parses, scheme is `http` or `https`, host non-empty.
+**URL** (`ValidateHTTPURL(s, maxBytes)`): empty allowed; otherwise `ValidateText(s, maxBytes)` (UTF-8 and length), parses, scheme is `http` or `https`, host non-empty.
 
 **Tags** (`ValidateTags(tags, maxTags, maxTagBytes)`): count, per-tag length, charset `^[a-z0-9-]+$`, no duplicates.
 
@@ -415,18 +418,18 @@ aborts the tx with the named error and no state change.
 | Signer | `owner` |
 | Checks | app exists; `owner == app.owner`; version exists → `ErrVersionNotFound`; `!version.yanked` → `ErrVersionYanked` |
 | State | `version.yanked = true`; `version.blue_check = false`; `version.blue_check_request_id = 0`. If `OpenRequestByVersion` has an entry: mark that request `CANCELLED`, `resolved_height = height`, refund escrow to `requester`, remove from `OpenRequestByVersion`, `ExpiryQueue`, and move in `RequestsByStatus`. `app.updated_height = height`. |
-| Events | `EventVersionYanked{ app_id, version }`; `EventRequestResolved{ id, status: CANCELLED }` if a request was cancelled |
+| Events | if a request was cancelled: `EventRequestResolved{ id, status: CANCELLED }` then `EventEscrowRefunded` (when escrow > 0); then `EventVersionYanked{ app_id, version }` (order per §6.6) |
 
 #### MsgRequestBlueCheck
 
 | | |
 |-|-|
 | Fields | `owner`, `app_id`, `version`, `escrow` (`optional Coin`) |
-| Escrow rule | `escrow == nil` or `escrow.amount == 0` means no escrow and skips the denom check. If `amount > 0`, `denom` must be `uglass`. Stored as `0uglass` when absent. |
+| Escrow rule | `escrow == nil` or `escrow.amount == 0` means no escrow and skips the denom check. If `amount > 0`, `denom` must be `uglass`. A nil or negative `amount` → `ErrInvalidEscrow`. Stored as `0uglass` when absent. |
 | Signer | `owner` |
 | Checks | app exists; `owner == app.owner`; version exists; `!version.yanked` → `ErrVersionYanked`; `!version.blue_check` → `ErrAlreadyVerified`; no `OpenRequestByVersion` entry → `ErrRequestExists`; escrow rule above → `ErrInvalidEscrow` |
 | Funds | if `escrow.amount > 0`: `SendCoinsFromAccountToModule(owner, "registry", escrow)` |
-| State | `id = RequestSeq.Next()`; write `Request{ kind: VERIFY, status: OPEN, requester: owner, escrow, submit_height, submit_time, expires_at = submit_time + voting_period }`; add `RequestsByStatus(OPEN, id)`, `OpenRequestByVersion`, `ExpiryQueue(expires_at, id)` |
+| State | `id = RequestSeq.Next()`; write `Request{ kind: VERIFY, status: OPEN, requester: owner, escrow, submit_height, submit_time, expires_at = submit_time + voting_period }`; add `RequestsByStatus(OPEN, id)`, `OpenRequestByVersion`, `ExpiryQueue(expires_at, id)`; `app.updated_height = height` (it is an owner message, §6.2) |
 | Response | `MsgRequestBlueCheckResponse{ id }` |
 | Event | `EventRequestCreated{ id, kind, app_id, version, requester, escrow, expires_at }` |
 
@@ -457,7 +460,7 @@ aborts the tx with the named error and no state change.
 |-|-|
 | Fields | `authority`, `params` |
 | Signer | `authority` |
-| Checks | `sdk.ValidateAuthority(ctx, keeper.authority, msg.authority)` → SDK `ErrUnauthorized` (the consensus-params `authority`, when set, overrides the keeper authority, as in every SDK module); `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address)` → `ErrInvalidParams` (a module-account treasury would make EndBlocker payouts fail) |
+| Checks | `sdk.ValidateAuthority(ctx, keeper.authority, msg.authority)` → SDK `ErrUnauthorized` (the consensus-params `authority`, when set, overrides the keeper authority, as in every SDK module); `params.Validate()` → `ErrInvalidParams`; `!bank.BlockedAddr(treasury_address) && treasury_address != authority` → `ErrInvalidParams` (a blocked module-account treasury would make EndBlocker payouts fail; the gov account is unblocked but funds sent there would strand) |
 | State | overwrite `Params` |
 | Event | `EventParamsUpdated{}` |
 
@@ -488,18 +491,18 @@ for (expires_at, id) in ExpiryQueue where expires_at <= now, ascending:
             if !version.yanked:               // defensive; yank cancels requests so this holds
                 version.blue_check = true
                 version.blue_check_request_id = id
-            payout(req, yesVoters)
         else: // REVOKE
             version.blue_check = false
             version.blue_check_request_id = 0
         Versions[...] = version
     else:
         req.status = FAILED
-        refund(req)
-    Requests[id] = req
+    Requests[id] = req                        // closeRequest: emits EventRequestResolved
     RequestsByStatus: move OPEN -> req.status
     delete OpenRequestByVersion[(req.app_id, req.version)]
     delete ExpiryQueue[(expires_at, id)]
+    if passed and req.kind == VERIFY: payout(req, yesVoters)
+    if !passed: refund(req)
 ```
 
 `closeRequest` emits `EventRequestResolved{ id, status, yes_power, no_power, total_power }`
@@ -550,6 +553,9 @@ listed for Jetty's convenience.
 | `Requests` | `status` (optional), `pagination` | `requests[]`, `pagination` | `GET /glassharbor/registry/v1/requests?status=` | With status: iterate `RequestsByStatus`. Without: iterate `Requests` by id. |
 | `Votes` | `request_id`, `pagination` | `votes[]`, `pagination` | `GET /glassharbor/registry/v1/requests/{request_id}/votes` | |
 
+REST query parameters for enum fields (`?status=`) take the numeric enum value
+(`?status=2` for PASSED); the gogo-only generation in §3 does not accept enum names there.
+
 Sorting beyond the above (semver order, title search, category filters) is the
 indexer's job (§13).
 
@@ -566,7 +572,7 @@ Registered in `types/errors.go` with `errorsmod.Register("registry", code, msg)`
 | Code | Name | Message |
 |------|------|---------|
 | 2 | `ErrAppNotFound` | app not found |
-| 3 | `ErrUnauthorized` | signer is not the app owner or authority |
+| 3 | `ErrUnauthorized` | signer is not the app owner |
 | 4 | `ErrInvalidField` | invalid field |
 | 5 | `ErrInvalidIcon` | invalid icon |
 | 6 | `ErrInvalidCategory` | category not allowed |
@@ -606,7 +612,7 @@ message GenesisState {
 `1..version_count`; `latest_version` matches the max-seq version; request ids unique
 and `< next_request_id`; at most one OPEN request per `(app_id, version)`; every request's
 `(app_id, version)` exists; every vote's request exists. `InitGenesis` (which has the bank
-keeper) additionally rejects a blocked (module) `treasury_address`, then rebuilds `AppsByOwner`, `VersionsBySeq`,
+keeper) additionally rejects a blocked (module) or gov-authority `treasury_address`, then rebuilds `AppsByOwner`, `VersionsBySeq`,
 `RequestsByStatus`, `OpenRequestByVersion`, and `ExpiryQueue` (OPEN requests only).
 Export → import → export must be byte-identical (tested).
 
@@ -726,7 +732,7 @@ entrypoint `harbord`, exposes 26656, 26657, 1317, 9090.
 - Icons are stored as opaque bytes; the chain never parses beyond the signature check. Jetty must sanitize SVGs before rendering.
 - Only the app owner can mutate an app; only bonded validators can vote or open revocations; only the gov authority can change params.
 - Escrow accounting is protected by invariant 1 in §6.11.
-- Determinism: iterate votes and yes voters in key order; use `LegacyDec` truncation for all percentage math; never use floats or map iteration in the keeper.
+- Determinism: iterate votes and yes voters in key order; use `LegacyDec` truncation for all percentage math; never use floats or map iteration in the keeper or in any validation it calls (a failed gov proposal stores the error text in state, so even error messages must be identical on every node).
 
 ## 13. Out of scope for this repository
 

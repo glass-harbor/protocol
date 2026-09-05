@@ -31,12 +31,7 @@ t0=$(bal treasury); v0=$(bal validator)
 tx create-app --title "Smoke App" --description "smoke" --category utilities --from alice
 tx publish-version 1 1.0.0 "$MAGNET" "$SHA" 1234 --from alice
 tx request-blue-check 1 1.0.0 --escrow 1000000uglass --from alice
-# AutoCLI accepts the enum suffix ("yes"); fall back to the full enum name if this client build does not.
-if "$BIN" tx registry vote 1 yes --from validator "${TXF[@]}" >/dev/null 2>&1; then
-  sleep 3
-else
-  tx vote 1 VOTE_OPTION_YES --from validator
-fi
+tx vote 1 yes --from validator
 
 echo "waiting for the 30s voting period..."
 sleep 40

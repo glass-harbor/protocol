@@ -65,14 +65,22 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) error {
 	}
 	// 4. per-app seq index and latest_version
 	return k.Apps.Walk(ctx, nil, func(id uint64, app types.App) (bool, error) {
-		for seq := uint64(1); seq <= app.VersionCount; seq++ {
-			name, err := k.VersionsBySeq.Get(ctx, collections.Join(id, seq))
-			if err != nil {
-				return true, fmt.Errorf("invariant 4: app %d missing seq %d: %w", id, seq, err)
+		var seq uint64
+		err := k.VersionsBySeq.Walk(ctx, collections.NewPrefixedPairRange[uint64, uint64](id), func(key collections.Pair[uint64, uint64], name string) (bool, error) {
+			seq++
+			if key.K2() != seq {
+				return true, fmt.Errorf("invariant 4: app %d expected seq %d, got %d", id, seq, key.K2())
 			}
 			if seq == app.VersionCount && name != app.LatestVersion {
 				return true, fmt.Errorf("invariant 4: app %d latest_version %q != seq %d (%q)", id, app.LatestVersion, seq, name)
 			}
+			return false, nil
+		})
+		if err != nil {
+			return true, err
+		}
+		if seq != app.VersionCount {
+			return true, fmt.Errorf("invariant 4: app %d has %d seq entries, expected %d", id, seq, app.VersionCount)
 		}
 		if app.VersionCount == 0 && app.LatestVersion != "" {
 			return true, fmt.Errorf("invariant 4: app %d has latest_version but no versions", id)

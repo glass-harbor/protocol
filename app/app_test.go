@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"testing"
+	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,8 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 
 	"github.com/glass-harbor/protocol/app"
 	registrytypes "github.com/glass-harbor/protocol/x/registry/types"
@@ -25,6 +28,15 @@ func TestNewAppWiresRegistryAndPrefixes(t *testing.T) {
 	require.Contains(t, gen, registrytypes.ModuleName)
 	require.Contains(t, gen, "transfer")
 	require.Contains(t, gen, "ibc")
+}
+
+func TestDefaultGovernanceVotingPeriod(t *testing.T) {
+	a := app.NewApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()))
+	var gs govv1.GenesisState
+	a.AppCodec().MustUnmarshalJSON(a.BasicModuleManager.DefaultGenesis(a.AppCodec())[govtypes.ModuleName], &gs)
+	require.Equal(t, 7*24*time.Hour, *gs.Params.VotingPeriod)
+	require.Equal(t, 24*time.Hour, *gs.Params.ExpeditedVotingPeriod)
+	require.Equal(t, govv1.DefaultPeriod, *gs.Params.MaxDepositPeriod)
 }
 
 // SPEC §4.1: the default genesis carries bank denom metadata for uglass/GLASS, so

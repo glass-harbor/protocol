@@ -31,7 +31,7 @@ func (k Keeper) chargeFee(ctx sdk.Context, params types.Params, payer sdk.AccAdd
 	return ctx.EventManager().EmitTypedEvent(&types.EventFeeCharged{
 		Payer:           payer.String(),
 		Kind:            kind,
-		TreasuryAmount:  sdk.NewCoin(fee.Denom, treasuryCut),
-		CollectorAmount: sdk.NewCoin(fee.Denom, rest),
+		TreasuryAmount:  sdk.NewCoin(fee.Denom, treasuryCut).String(),
+		CollectorAmount: sdk.NewCoin(fee.Denom, rest).String(),
 	})
 }

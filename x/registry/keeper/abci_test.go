@@ -69,6 +69,7 @@ func (s *KeeperTestSuite) TestEndBlockerFailsBelowTwoThirdsAndRefunds() {
 	s.expectBonded(valAddr, 1)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, owner, coins(500)).Return(nil)
 	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	s.requireEventCoin("EventEscrowRefunded", "amount", "500uglass")
 
 	req, _ := s.keeper.Requests.Get(s.ctx, reqID)
 	s.Require().Equal(types.REQUEST_STATUS_FAILED, req.Status)
@@ -115,6 +116,8 @@ func (s *KeeperTestSuite) TestEndBlockerPayoutProportionalWithDust() {
 	}
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, treasury, coins(12)).Return(nil)
 	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	s.requireEventCoin("EventEscrowPaid", "treasury_amount", "12uglass")
+	s.requireEventCoin("EventEscrowPaid", "validator_amount", "93uglass")
 	req, _ := s.keeper.Requests.Get(s.ctx, reqID)
 	s.Require().Equal(types.REQUEST_STATUS_PASSED, req.Status)
 }
@@ -131,6 +134,29 @@ func (s *KeeperTestSuite) TestEndBlockerPayoutWeightedByPower() {
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(valAddr2), coins(270_000)).Return(nil)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, treasury, coins(100_000)).Return(nil)
 	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+}
+
+func (s *KeeperTestSuite) TestEndBlockerPayoutLargeEscrow() {
+	appID := s.createApp(owner)
+	s.publish(owner, appID, "1.0.0")
+	escrow := sdk.NewCoin(types.DefaultDenom, math.NewIntWithDecimal(1, 60))
+	s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(gomock.Any(), owner, types.ModuleName, sdk.NewCoins(escrow)).Return(nil)
+	res, err := s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{
+		Owner: owner.String(), AppId: appID, Version: "1.0.0", Escrow: &escrow,
+	})
+	s.Require().NoError(err)
+	const power int64 = 1_000_000_000_000_000_000
+	s.vote(valAddr, power, res.Id, types.VOTE_OPTION_YES)
+	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(power), nil)
+	s.expectBonded(valAddr, power)
+	cut := escrow.Amount.QuoRaw(10)
+	share := escrow.Amount.Sub(cut)
+	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(valAddr), sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, share))).Return(nil)
+	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, treasury, sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, cut))).Return(nil)
+	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	req, err := s.keeper.Requests.Get(s.ctx, res.Id)
+	s.Require().NoError(err)
+	s.Require().Equal(types.REQUEST_STATUS_PASSED, req.Status)
 }
 
 func (s *KeeperTestSuite) TestEndBlockerRevocationClearsBlueCheck() {

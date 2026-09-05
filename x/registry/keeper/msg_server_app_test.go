@@ -99,6 +99,49 @@ func (s *KeeperTestSuite) TestUpdateApp() {
 	s.Require().ErrorIs(err, types.ErrAppNotFound)
 }
 
+func (s *KeeperTestSuite) TestOwnerMessagesRejectBeforeMutation() {
+	id := s.createApp(owner)
+	before, err := s.keeper.ExportGenesis(s.ctx)
+	s.Require().NoError(err)
+	calls := map[string]func(uint64, string) error{
+		"update": func(id uint64, signer string) error {
+			_, err := s.msgServer.UpdateApp(s.ctx, &types.MsgUpdateApp{AppId: id, Owner: signer})
+			return err
+		},
+		"transfer": func(id uint64, signer string) error {
+			_, err := s.msgServer.TransferApp(s.ctx, &types.MsgTransferApp{AppId: id, Owner: signer})
+			return err
+		},
+		"deprecate": func(id uint64, signer string) error {
+			_, err := s.msgServer.SetDeprecated(s.ctx, &types.MsgSetDeprecated{AppId: id, Owner: signer})
+			return err
+		},
+		"publish": func(id uint64, signer string) error {
+			_, err := s.msgServer.PublishVersion(s.ctx, &types.MsgPublishVersion{AppId: id, Owner: signer})
+			return err
+		},
+		"yank": func(id uint64, signer string) error {
+			_, err := s.msgServer.YankVersion(s.ctx, &types.MsgYankVersion{AppId: id, Owner: signer})
+			return err
+		},
+		"verify": func(id uint64, signer string) error {
+			_, err := s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{AppId: id, Owner: signer})
+			return err
+		},
+	}
+	for name, call := range calls {
+		s.Run(name, func() {
+			s.Require().ErrorIs(call(99, owner.String()), types.ErrAppNotFound)
+			s.Require().ErrorIs(call(99, "bad"), types.ErrAppNotFound)
+			s.Require().ErrorIs(call(id, "bad"), sdkerrors.ErrInvalidAddress)
+			s.Require().ErrorIs(call(id, other.String()), types.ErrUnauthorized)
+			after, err := s.keeper.ExportGenesis(s.ctx)
+			s.Require().NoError(err)
+			s.Require().Equal(before, after)
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestTransferApp() {
 	id := s.createApp(owner)
 	_, err := s.msgServer.TransferApp(s.ctx, &types.MsgTransferApp{Owner: owner.String(), AppId: id, NewOwner: owner.String()})
@@ -147,6 +190,12 @@ func (s *KeeperTestSuite) TestUpdateParams() {
 	bad := p
 	bad.VotingPeriod = 0
 	_, err = s.msgServer.UpdateParams(s.ctx, &types.MsgUpdateParams{Authority: authority, Params: bad})
+	s.Require().ErrorIs(err, types.ErrInvalidParams)
+
+	// the gov account is not bank-blocked but escrow paid to it would strand
+	govTreasury := p
+	govTreasury.TreasuryAddress = authority
+	_, err = s.msgServer.UpdateParams(s.ctx, &types.MsgUpdateParams{Authority: authority, Params: govTreasury})
 	s.Require().ErrorIs(err, types.ErrInvalidParams)
 
 	// blocked treasury address rejected

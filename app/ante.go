@@ -3,11 +3,11 @@ package app
 import (
 	"errors"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth/ante"
-
 	ibcante "github.com/cosmos/ibc-go/v11/modules/core/ante"
 	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 )
 
 // HandlerOptions extends the SDK ante options with the IBC keeper.

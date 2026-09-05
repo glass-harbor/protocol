@@ -4,10 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/ibc-go/v11/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	transferv2 "github.com/cosmos/ibc-go/v11/modules/apps/transfer/v2"
+	ibc "github.com/cosmos/ibc-go/v11/modules/core"
+	porttypes "github.com/cosmos/ibc-go/v11/modules/core/05-port/types"
+	ibcapi "github.com/cosmos/ibc-go/v11/modules/core/api"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
+	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
@@ -70,6 +81,7 @@ import (
 	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
@@ -87,17 +99,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-
-	"github.com/cosmos/ibc-go/v11/modules/apps/transfer"
-	ibctransferkeeper "github.com/cosmos/ibc-go/v11/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
-	transferv2 "github.com/cosmos/ibc-go/v11/modules/apps/transfer/v2"
-	ibc "github.com/cosmos/ibc-go/v11/modules/core"
-	porttypes "github.com/cosmos/ibc-go/v11/modules/core/05-port/types"
-	ibcapi "github.com/cosmos/ibc-go/v11/modules/core/api"
-	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v11/modules/core/keeper"
-	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 
 	"github.com/glass-harbor/protocol/x/registry"
 	registrykeeper "github.com/glass-harbor/protocol/x/registry/keeper"
@@ -320,7 +321,9 @@ func NewApp(
 	})
 	// the native denom metadata must reach `harbord init`, which builds genesis from the
 	// basic manager and never sees App.DefaultGenesis (SPEC §4.1)
-	app.BasicModuleManager[banktypes.ModuleName] = bankWithDenomMetadata{app.BasicModuleManager[banktypes.ModuleName]}
+	for _, name := range []string{banktypes.ModuleName, govtypes.ModuleName} {
+		app.BasicModuleManager[name] = chainGenesisDefaults{app.BasicModuleManager[name]}
+	}
 	app.BasicModuleManager.RegisterLegacyAminoCodec(legacyAmino)
 	app.BasicModuleManager.RegisterInterfaces(interfaceRegistry)
 
@@ -495,33 +498,43 @@ func DefaultDenomMetadata() banktypes.Metadata {
 	}
 }
 
-// bankWithDenomMetadata wraps the bank module's basics so its default genesis carries the
-// uglass/GLASS denom metadata. It sits in BasicModuleManager rather than in
-// App.DefaultGenesis because `harbord init` builds genesis from the basic manager alone.
-type bankWithDenomMetadata struct {
+// chainGenesisDefaults supplies chain defaults to both App.DefaultGenesis and harbord init.
+type chainGenesisDefaults struct {
 	module.AppModuleBasic
 }
 
 var (
-	_ module.AppModuleBasic   = bankWithDenomMetadata{}
-	_ module.HasGenesisBasics = bankWithDenomMetadata{}
+	_ module.AppModuleBasic   = chainGenesisDefaults{}
+	_ module.HasGenesisBasics = chainGenesisDefaults{}
 )
 
-func (b bankWithDenomMetadata) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
-	var gs banktypes.GenesisState
-	cdc.MustUnmarshalJSON(b.inner().DefaultGenesis(cdc), &gs)
-	gs.DenomMetadata = append(gs.DenomMetadata, DefaultDenomMetadata())
-	return cdc.MustMarshalJSON(&gs)
+func (b chainGenesisDefaults) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+	bz := b.inner().DefaultGenesis(cdc)
+	switch b.Name() {
+	case banktypes.ModuleName:
+		var gs banktypes.GenesisState
+		cdc.MustUnmarshalJSON(bz, &gs)
+		gs.DenomMetadata = append(gs.DenomMetadata, DefaultDenomMetadata())
+		return cdc.MustMarshalJSON(&gs)
+	case govtypes.ModuleName:
+		var gs govv1.GenesisState
+		cdc.MustUnmarshalJSON(bz, &gs)
+		period := 7 * 24 * time.Hour
+		gs.Params.VotingPeriod = &period
+		return cdc.MustMarshalJSON(&gs)
+	default:
+		return bz
+	}
 }
 
-func (b bankWithDenomMetadata) ValidateGenesis(cdc codec.JSONCodec, txCfg client.TxEncodingConfig, bz json.RawMessage) error {
+func (b chainGenesisDefaults) ValidateGenesis(cdc codec.JSONCodec, txCfg client.TxEncodingConfig, bz json.RawMessage) error {
 	return b.inner().ValidateGenesis(cdc, txCfg, bz)
 }
 
-func (b bankWithDenomMetadata) inner() module.HasGenesisBasics {
+func (b chainGenesisDefaults) inner() module.HasGenesisBasics {
 	inner, ok := b.AppModuleBasic.(module.HasGenesisBasics)
 	if !ok {
-		panic("bank module basics do not implement module.HasGenesisBasics")
+		panic("module basics do not implement module.HasGenesisBasics")
 	}
 	return inner
 }

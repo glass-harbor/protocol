@@ -18,6 +18,9 @@ func (gs GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}
+	if gs.NextAppId == 0 || gs.NextRequestId == 0 {
+		return fmt.Errorf("next_app_id and next_request_id must be positive")
+	}
 	apps := make(map[uint64]App, len(gs.Apps))
 	for _, a := range gs.Apps {
 		if a.Id == 0 || a.Id >= gs.NextAppId {
@@ -52,7 +55,8 @@ func (gs GenesisState) Validate() error {
 		}
 		seqs[v.AppId][v.Seq] = v.Version
 	}
-	for id, a := range apps {
+	for _, a := range gs.Apps { // slice order: deterministic error text
+		id := a.Id
 		s := seqs[id]
 		if uint64(len(s)) != a.VersionCount {
 			return fmt.Errorf("app %d: version_count %d != %d versions", id, a.VersionCount, len(s))

@@ -69,7 +69,7 @@ func (k Keeper) openRequest(ctx sdk.Context, kind types.RequestKind, appID uint6
 		return 0, err
 	}
 	if err := ctx.EventManager().EmitTypedEvent(&types.EventRequestCreated{
-		Id: id, Kind: kind, AppId: appID, Version: version, Requester: requester, Escrow: escrow, ExpiresAt: req.ExpiresAt,
+		Id: id, Kind: kind, AppId: appID, Version: version, Requester: requester, Escrow: escrow.String(), ExpiresAt: req.ExpiresAt,
 	}); err != nil {
 		return 0, err
 	}
@@ -116,7 +116,7 @@ func (k Keeper) refundEscrow(ctx sdk.Context, req types.Request) error {
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, to, sdk.NewCoins(req.Escrow)); err != nil {
 		return err
 	}
-	return ctx.EventManager().EmitTypedEvent(&types.EventEscrowRefunded{RequestId: req.Id, To: req.Requester, Amount: req.Escrow})
+	return ctx.EventManager().EmitTypedEvent(&types.EventEscrowRefunded{RequestId: req.Id, To: req.Requester, Amount: req.Escrow.String()})
 }
 
 // payoutEscrow implements SPEC §6.6 payout: treasury cut first, remainder pro-rata to YES voters, dust to treasury.
@@ -142,7 +142,10 @@ func (k Keeper) payoutEscrow(ctx sdk.Context, req types.Request, voters []yesVot
 	paid := math.ZeroInt()
 	if yesPower.IsPositive() {
 		for _, v := range voters {
-			share := rest.Mul(v.power).Quo(yesPower)
+			// The product can exceed 256 bits even though the final share fits.
+			product := rest.BigInt()
+			product.Mul(product, v.power.BigInt())
+			share := math.NewIntFromBigInt(product.Quo(product, yesPower.BigInt()))
 			if !share.IsPositive() {
 				continue
 			}
@@ -160,7 +163,7 @@ func (k Keeper) payoutEscrow(ctx sdk.Context, req types.Request, voters []yesVot
 	}
 	return ctx.EventManager().EmitTypedEvent(&types.EventEscrowPaid{
 		RequestId:       req.Id,
-		TreasuryAmount:  sdk.NewCoin(req.Escrow.Denom, toTreasury),
-		ValidatorAmount: sdk.NewCoin(req.Escrow.Denom, paid),
+		TreasuryAmount:  sdk.NewCoin(req.Escrow.Denom, toTreasury).String(),
+		ValidatorAmount: sdk.NewCoin(req.Escrow.Denom, paid).String(),
 	})
 }

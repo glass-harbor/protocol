@@ -338,6 +338,12 @@ func TestRemainingMessagesThroughFinalizeBlock(t *testing.T) {
 		&registrytypes.MsgPublishVersion{Owner: bob.addr.String(), AppId: 1, Version: "1.1.0", Magnet: magnet, ChecksumSha256: checksum, FileSize: 20},
 		&registrytypes.MsgRequestBlueCheck{Owner: bob.addr.String(), AppId: 1, Version: "1.1.0"},
 	}})
+	// SPEC §6.7/§10: Versions lists newest first (by publish order) through the gRPC query server
+	versions, err := querier.Versions(queryCtx(), &registrytypes.QueryVersionsRequest{AppId: 1})
+	require.NoError(t, err)
+	require.Len(t, versions.Versions, 2)
+	require.Equal(t, "1.1.0", versions.Versions[0].Version)
+	require.Equal(t, "1.0.0", versions.Versions[1].Version)
 
 	// block 7: bob's validator votes yes; block 8 is past the 30s voting period
 	deliver(now.Add(5*time.Second), signedMsgs{bob, []sdk.Msg{
