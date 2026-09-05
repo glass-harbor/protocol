@@ -159,3 +159,67 @@ func (s *KeeperTestSuite) TestEndBlockerRevocationClearsBlueCheck() {
 	req, _ := s.keeper.Requests.Get(s.ctx, res.Id)
 	s.Require().Equal(types.REQUEST_STATUS_PASSED, req.Status)
 }
+
+// A VERIFY request whose version was force-yanked in state (index left dangling) still
+// resolves: it passes, the escrow is paid out, but the blue check is NOT granted.
+func (s *KeeperTestSuite) TestEndBlockerVerifyOnYankedVersionPaysOutButSkipsBlueCheck() {
+	appID, reqID := s.setupVerifyRequest(1000)
+	key := collections.Join(appID, "1.0.0")
+	v, err := s.keeper.Versions.Get(s.ctx, key)
+	s.Require().NoError(err)
+	v.Yanked = true // straight into state: the open request is deliberately left behind
+	s.Require().NoError(s.keeper.Versions.Set(s.ctx, key, v))
+
+	s.vote(valAddr, 1, reqID, types.VOTE_OPTION_YES)
+	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(1), nil)
+	s.expectBonded(valAddr, 1)
+	// escrow 1000 -> 10% treasury (100), 900 to the single YES voter
+	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(valAddr), coins(900)).Return(nil)
+	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, treasury, coins(100)).Return(nil)
+	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+
+	req, err := s.keeper.Requests.Get(s.ctx, reqID)
+	s.Require().NoError(err)
+	s.Require().Equal(types.REQUEST_STATUS_PASSED, req.Status)
+	v, err = s.keeper.Versions.Get(s.ctx, key)
+	s.Require().NoError(err)
+	s.Require().True(v.Yanked)
+	s.Require().False(v.BlueCheck)
+	s.Require().Equal(uint64(0), v.BlueCheckRequestId)
+}
+
+// Two requests share an expires_at (same submit block): one block must resolve both.
+func (s *KeeperTestSuite) TestEndBlockerResolvesTwoRequestsInOneBlock() {
+	appID := s.createApp(owner)
+	s.publish(owner, appID, "1.0.0")
+	s.publish(owner, appID, "1.1.0")
+	pass := s.requestVerify(owner, appID, "1.0.0", 0)
+	fail := s.requestVerify(owner, appID, "1.1.0", 0)
+	s.vote(valAddr, 3, pass, types.VOTE_OPTION_YES)
+	s.vote(valAddr, 3, fail, types.VOTE_OPTION_NO)
+
+	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(3), nil).Times(2)
+	s.stakingKeeper.EXPECT().GetValidator(gomock.Any(), valAddr).Return(bondedValidator(valAddr, 3), nil).Times(2)
+	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry).WithBlockHeight(77)))
+
+	passed, err := s.keeper.Requests.Get(s.ctx, pass)
+	s.Require().NoError(err)
+	s.Require().Equal(types.REQUEST_STATUS_PASSED, passed.Status)
+	s.Require().Equal(int64(77), passed.ResolvedHeight)
+	failed, err := s.keeper.Requests.Get(s.ctx, fail)
+	s.Require().NoError(err)
+	s.Require().Equal(types.REQUEST_STATUS_FAILED, failed.Status)
+	s.Require().Equal(int64(77), failed.ResolvedHeight)
+
+	v, _ := s.keeper.Versions.Get(s.ctx, collections.Join(appID, "1.0.0"))
+	s.Require().True(v.BlueCheck)
+	v, _ = s.keeper.Versions.Get(s.ctx, collections.Join(appID, "1.1.0"))
+	s.Require().False(v.BlueCheck)
+
+	// the whole queue drained
+	empty, err := s.keeper.ExpiryQueue.Iterate(s.ctx, nil)
+	s.Require().NoError(err)
+	keys, err := empty.Keys()
+	s.Require().NoError(err)
+	s.Require().Empty(keys)
+}

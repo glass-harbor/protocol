@@ -105,7 +105,8 @@ func (q Querier) Versions(ctx context.Context, req *types.QueryVersionsRequest) 
 	}
 	pageReq := &query.PageRequest{}
 	if req.Pagination != nil {
-		pageReq = req.Pagination
+		cp := *req.Pagination // copy: never mutate the caller's PageRequest
+		pageReq = &cp
 	}
 	pageReq.Reverse = true // newest (highest seq) first, always
 	versions, pageRes, err := query.CollectionPaginate(ctx, q.VersionsBySeq, pageReq,

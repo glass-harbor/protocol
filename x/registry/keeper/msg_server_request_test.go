@@ -207,3 +207,68 @@ func (s *KeeperTestSuite) TestRefundGoesToOriginalRequesterAfterTransfer() {
 	req, _ := s.keeper.Requests.Get(s.ctx, reqID)
 	s.Require().Equal(types.REQUEST_STATUS_CANCELLED, req.Status)
 }
+
+// SPEC §6.5: the "no open request" check runs BEFORE the escrow rule, so a duplicate
+// request reports ErrRequestExists whatever the escrow coin is and never moves funds.
+// No bank expectation is registered here: an unexpected SendCoins* call fails the test.
+func (s *KeeperTestSuite) TestRequestBlueCheckOpenRequestCheckPrecedesEscrow() {
+	id := s.createApp(owner)
+	s.publish(owner, id, "1.0.0")
+	s.requestVerify(owner, id, "1.0.0", 0)
+
+	good := sdk.NewInt64Coin("uglass", 1_000_000)
+	_, err := s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{
+		Owner: owner.String(), AppId: id, Version: "1.0.0", Escrow: &good,
+	})
+	s.Require().ErrorIs(err, types.ErrRequestExists)
+
+	// a mis-denominated escrow reports ErrRequestExists too, which is what pins the order
+	bad := sdk.NewInt64Coin("uatom", 5)
+	_, err = s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{
+		Owner: owner.String(), AppId: id, Version: "1.0.0", Escrow: &bad,
+	})
+	s.Require().ErrorIs(err, types.ErrRequestExists)
+	s.Require().NotErrorIs(err, types.ErrInvalidEscrow)
+
+	// the escrow is still held only by the first request
+	req, err := s.keeper.Requests.Get(s.ctx, 1)
+	s.Require().NoError(err)
+	s.Require().True(req.Escrow.IsZero())
+	next, err := s.keeper.RequestSeq.Peek(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(2), next, "no second request was created")
+}
+
+func (s *KeeperTestSuite) TestRequestRevocationUnknownAppAndVersion() {
+	s.expectBonded(valAddr, 10)
+	_, err := s.msgServer.RequestRevocation(s.ctx, &types.MsgRequestRevocation{
+		Validator: valAddr.String(), AppId: 404, Version: "1.0.0",
+	})
+	s.Require().ErrorIs(err, types.ErrAppNotFound)
+
+	id := s.createApp(owner)
+	s.expectBonded(valAddr, 10)
+	_, err = s.msgServer.RequestRevocation(s.ctx, &types.MsgRequestRevocation{
+		Validator: valAddr.String(), AppId: id, Version: "9.9.9",
+	})
+	s.Require().ErrorIs(err, types.ErrVersionNotFound)
+}
+
+func (s *KeeperTestSuite) TestRequestRevocationFromUnbondedValidator() {
+	id := s.createApp(owner)
+	s.publish(owner, id, "1.0.0")
+
+	unbonded := bondedValidator(valAddr, 10)
+	unbonded.Status = stakingtypes.Unbonded
+	s.stakingKeeper.EXPECT().GetValidator(gomock.Any(), valAddr).Return(unbonded, nil)
+	_, err := s.msgServer.RequestRevocation(s.ctx, &types.MsgRequestRevocation{
+		Validator: valAddr.String(), AppId: id, Version: "1.0.0",
+	})
+	s.Require().ErrorIs(err, types.ErrNotBondedValidator)
+
+	s.stakingKeeper.EXPECT().GetValidator(gomock.Any(), valAddr2).Return(stakingtypes.Validator{}, stakingtypes.ErrNoValidatorFound)
+	_, err = s.msgServer.RequestRevocation(s.ctx, &types.MsgRequestRevocation{
+		Validator: valAddr2.String(), AppId: id, Version: "1.0.0",
+	})
+	s.Require().ErrorIs(err, types.ErrNotBondedValidator)
+}

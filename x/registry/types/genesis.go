@@ -84,6 +84,25 @@ func (gs GenesisState) Validate() error {
 		if _, ok := versions[vkey{r.AppId, r.Version}]; !ok {
 			return fmt.Errorf("request %d: version %d/%s not found", r.Id, r.AppId, r.Version)
 		}
+		switch r.Kind {
+		case REQUEST_KIND_VERIFY, REQUEST_KIND_REVOKE:
+		default:
+			return fmt.Errorf("request %d: invalid kind %s", r.Id, r.Kind)
+		}
+		switch r.Status {
+		case REQUEST_STATUS_OPEN, REQUEST_STATUS_PASSED, REQUEST_STATUS_FAILED, REQUEST_STATUS_CANCELLED:
+		default:
+			return fmt.Errorf("request %d: invalid status %s", r.Id, r.Status)
+		}
+		if err := r.Escrow.Validate(); err != nil {
+			return fmt.Errorf("request %d: escrow: %w", r.Id, err)
+		}
+		if r.Escrow.Denom != DefaultDenom {
+			return fmt.Errorf("request %d: escrow denom %q must be %s", r.Id, r.Escrow.Denom, DefaultDenom)
+		}
+		if r.YesPower.IsNil() || r.NoPower.IsNil() || r.TotalPower.IsNil() {
+			return fmt.Errorf("request %d: yes_power/no_power/total_power must be set", r.Id)
+		}
 		if r.Status == REQUEST_STATUS_OPEN {
 			k := vkey{r.AppId, r.Version}
 			if _, dup := open[k]; dup {
@@ -95,6 +114,11 @@ func (gs GenesisState) Validate() error {
 	for _, v := range gs.Votes {
 		if _, ok := requests[v.RequestId]; !ok {
 			return fmt.Errorf("vote on request %d: request not found", v.RequestId)
+		}
+		switch v.Option {
+		case VOTE_OPTION_YES, VOTE_OPTION_NO:
+		default:
+			return fmt.Errorf("vote on request %d by %s: invalid option %s", v.RequestId, v.Validator, v.Option)
 		}
 	}
 	return nil

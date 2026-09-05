@@ -239,6 +239,13 @@ func (m msgServer) RequestBlueCheck(goCtx context.Context, msg *types.MsgRequest
 	if v.BlueCheck {
 		return nil, errorsmod.Wrapf(types.ErrAlreadyVerified, "%d/%s", app.Id, msg.Version)
 	}
+	// SPEC §6.5: the open-request check precedes the escrow rule, so a duplicate request
+	// reports ErrRequestExists regardless of the escrow coin and never moves funds.
+	if has, err := m.OpenRequestByVersion.Has(ctx, collections.Join(app.Id, msg.Version)); err != nil {
+		return nil, err
+	} else if has {
+		return nil, errorsmod.Wrapf(types.ErrRequestExists, "%d/%s", app.Id, msg.Version)
+	}
 	escrow := zeroEscrow()
 	if msg.Escrow != nil && !msg.Escrow.Amount.IsNil() && !msg.Escrow.Amount.IsZero() {
 		if err := msg.Escrow.Validate(); err != nil {
@@ -248,12 +255,6 @@ func (m msgServer) RequestBlueCheck(goCtx context.Context, msg *types.MsgRequest
 			return nil, errorsmod.Wrapf(types.ErrInvalidEscrow, "denom must be %s", types.DefaultDenom)
 		}
 		escrow = *msg.Escrow
-	}
-	// check for an existing open request before moving funds
-	if has, err := m.OpenRequestByVersion.Has(ctx, collections.Join(app.Id, msg.Version)); err != nil {
-		return nil, err
-	} else if has {
-		return nil, errorsmod.Wrapf(types.ErrRequestExists, "%d/%s", app.Id, msg.Version)
 	}
 	if escrow.Amount.IsPositive() {
 		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, ownerBz, types.ModuleName, sdk.NewCoins(escrow)); err != nil {
