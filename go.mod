@@ -4,12 +4,15 @@ go 1.26.5
 
 require (
 	cosmossdk.io/collections v1.4.0
+	cosmossdk.io/errors v1.1.0
 	cosmossdk.io/math v1.5.3
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
 	github.com/cosmos/cosmos-sdk v0.54.4
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/golang/protobuf v1.5.4
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/stretchr/testify v1.11.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
@@ -18,7 +21,6 @@ require (
 require (
 	cosmossdk.io/api v1.0.0 // indirect
 	cosmossdk.io/core v1.1.0 // indirect
-	cosmossdk.io/errors v1.1.0 // indirect
 	cosmossdk.io/log/v2 v2.1.0 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
@@ -83,7 +85,6 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/supranational/blst v0.3.16 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
