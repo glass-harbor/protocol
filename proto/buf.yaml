@@ -8,7 +8,7 @@ deps:
   - buf.build/protocolbuffers/wellknowntypes
 lint:
   use:
-    - DEFAULT
+    - STANDARD
     - COMMENTS
     - FILE_LOWER_SNAKE_CASE
   except:

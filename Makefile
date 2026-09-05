@@ -5,7 +5,9 @@ BUILDDIR ?= $(CURDIR)/build
 DOCKER := $(shell which docker)
 protoVer=0.18.1
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
-protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
+# run as the host user so generated files and buf.lock are writable on CI checkouts (the image defaults to uid 1000);
+# HOME=/tmp gives buf a writable cache directory for that user.
+protoImage=$(DOCKER) run --rm --user $$(id -u):$$(id -g) -e HOME=/tmp -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
 ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=glassharbor \
 	-X github.com/cosmos/cosmos-sdk/version.AppName=harbord \
