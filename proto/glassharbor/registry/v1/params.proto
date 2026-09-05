@@ -1,0 +1,32 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "amino/amino.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+// Params defines the x/registry parameters (SPEC §6.1).
+message Params {
+  option (amino.name) = "registry/Params";
+  cosmos.base.v1beta1.Coin create_app_fee = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  cosmos.base.v1beta1.Coin publish_version_fee = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  string upload_fee_treasury_rate = 3 [(cosmos_proto.scalar) = "cosmos.Dec", (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec", (gogoproto.nullable) = false];
+  string bluecheck_treasury_rate = 4 [(cosmos_proto.scalar) = "cosmos.Dec", (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec", (gogoproto.nullable) = false];
+  string treasury_address = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  google.protobuf.Duration voting_period = 6 [(gogoproto.stdduration) = true, (gogoproto.nullable) = false];
+  repeated string categories = 7;
+  uint32 max_title_bytes = 8;
+  uint32 max_description_bytes = 9;
+  uint32 max_tags = 10;
+  uint32 max_tag_bytes = 11;
+  uint32 max_icon_bytes = 12;
+  uint32 max_magnet_bytes = 13;
+  uint32 max_min_jetty_version_bytes = 14;
+  uint32 max_website_bytes = 15;
+  uint32 max_source_url_bytes = 16;
+  uint32 max_version_bytes = 17;
+}

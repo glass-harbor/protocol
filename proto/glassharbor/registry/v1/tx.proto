@@ -1,0 +1,163 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "amino/amino.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "glassharbor/registry/v1/params.proto";
+import "glassharbor/registry/v1/registry.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+// Msg defines the registry Msg service (SPEC §6.5).
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc CreateApp(MsgCreateApp) returns (MsgCreateAppResponse);
+  rpc UpdateApp(MsgUpdateApp) returns (MsgUpdateAppResponse);
+  rpc TransferApp(MsgTransferApp) returns (MsgTransferAppResponse);
+  rpc SetDeprecated(MsgSetDeprecated) returns (MsgSetDeprecatedResponse);
+  rpc PublishVersion(MsgPublishVersion) returns (MsgPublishVersionResponse);
+  rpc YankVersion(MsgYankVersion) returns (MsgYankVersionResponse);
+  rpc RequestBlueCheck(MsgRequestBlueCheck) returns (MsgRequestBlueCheckResponse);
+  rpc RequestRevocation(MsgRequestRevocation) returns (MsgRequestRevocationResponse);
+  rpc Vote(MsgVote) returns (MsgVoteResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgCreateApp registers a new app and charges create_app_fee.
+message MsgCreateApp {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "registry/MsgCreateApp";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string title = 2;
+  string description = 3;
+  bytes icon = 4;
+  string icon_mime = 5;
+  string website = 6;
+  string source_url = 7;
+  string category = 8;
+  repeated string tags = 9;
+}
+// MsgCreateAppResponse returns the new app id.
+message MsgCreateAppResponse {
+  uint64 id = 1;
+}
+
+// MsgUpdateApp replaces all editable metadata of an app.
+message MsgUpdateApp {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgUpdateApp";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  string title = 3;
+  string description = 4;
+  bytes icon = 5;
+  string icon_mime = 6;
+  string website = 7;
+  string source_url = 8;
+  string category = 9;
+  repeated string tags = 10;
+}
+// MsgUpdateAppResponse is empty.
+message MsgUpdateAppResponse {}
+
+// MsgTransferApp moves ownership immediately.
+message MsgTransferApp {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgTransferApp";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  string new_owner = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// MsgTransferAppResponse is empty.
+message MsgTransferAppResponse {}
+
+// MsgSetDeprecated toggles the deprecated display flag.
+message MsgSetDeprecated {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgSetDeprecated";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  bool deprecated = 3;
+}
+// MsgSetDeprecatedResponse is empty.
+message MsgSetDeprecatedResponse {}
+
+// MsgPublishVersion adds an immutable version and charges publish_version_fee.
+message MsgPublishVersion {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgPublishVersion";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  string version = 3;
+  string magnet = 4;
+  string checksum_sha256 = 5;
+  uint64 file_size = 6;
+  string min_jetty_version = 7;
+}
+// MsgPublishVersionResponse is empty.
+message MsgPublishVersionResponse {}
+
+// MsgYankVersion irreversibly marks a version unsafe, clears its blue check, and
+// cancels any open request on it.
+message MsgYankVersion {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgYankVersion";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  string version = 3;
+}
+// MsgYankVersionResponse is empty.
+message MsgYankVersionResponse {}
+
+// MsgRequestBlueCheck opens a verification request with optional escrow.
+message MsgRequestBlueCheck {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "registry/MsgRequestBlueCheck";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 app_id = 2;
+  string version = 3;
+  // escrow is optional; nil or zero amount means no escrow.
+  cosmos.base.v1beta1.Coin escrow = 4;
+}
+// MsgRequestBlueCheckResponse returns the request id.
+message MsgRequestBlueCheckResponse {
+  uint64 id = 1;
+}
+
+// MsgRequestRevocation opens a revocation request; signed by a bonded validator.
+message MsgRequestRevocation {
+  option (cosmos.msg.v1.signer) = "validator";
+  option (amino.name) = "registry/MsgRequestRevocation";
+  string validator = 1 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  uint64 app_id = 2;
+  string version = 3;
+}
+// MsgRequestRevocationResponse returns the request id.
+message MsgRequestRevocationResponse {
+  uint64 id = 1;
+}
+
+// MsgVote casts or changes a validator's vote on an open request.
+message MsgVote {
+  option (cosmos.msg.v1.signer) = "validator";
+  option (amino.name) = "registry/MsgVote";
+  string validator = 1 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  uint64 request_id = 2;
+  VoteOption option = 3;
+}
+// MsgVoteResponse is empty.
+message MsgVoteResponse {}
+
+// MsgUpdateParams replaces the module params; authority is the gov module account.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "registry/MsgUpdateParams";
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+// MsgUpdateParamsResponse is empty.
+message MsgUpdateParamsResponse {}

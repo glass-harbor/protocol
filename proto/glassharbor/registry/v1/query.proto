@@ -1,0 +1,109 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "glassharbor/registry/v1/params.proto";
+import "glassharbor/registry/v1/registry.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+// Query defines the registry query service (SPEC §6.7).
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/params";
+  }
+  rpc App(QueryAppRequest) returns (QueryAppResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/apps/{id}";
+  }
+  rpc Apps(QueryAppsRequest) returns (QueryAppsResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/apps";
+  }
+  rpc Versions(QueryVersionsRequest) returns (QueryVersionsResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/apps/{app_id}/versions";
+  }
+  rpc Version(QueryVersionRequest) returns (QueryVersionResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/apps/{app_id}/versions/{version}";
+  }
+  rpc Request(QueryRequestRequest) returns (QueryRequestResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/requests/{id}";
+  }
+  rpc Requests(QueryRequestsRequest) returns (QueryRequestsResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/requests";
+  }
+  rpc Votes(QueryVotesRequest) returns (QueryVotesResponse) {
+    option (google.api.http).get = "/glassharbor/registry/v1/requests/{request_id}/votes";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAppRequest {
+  uint64 id = 1;
+}
+// AppWithStatus pairs an app with its derived verified flag.
+message AppWithStatus {
+  App app = 1 [(gogoproto.nullable) = false];
+  bool verified = 2;
+}
+message QueryAppResponse {
+  App app = 1 [(gogoproto.nullable) = false];
+  bool verified = 2;
+}
+
+message QueryAppsRequest {
+  // owner filters by owner address when non-empty.
+  string owner = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+message QueryAppsResponse {
+  repeated AppWithStatus apps = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryVersionsRequest {
+  uint64 app_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+message QueryVersionsResponse {
+  repeated Version versions = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryVersionRequest {
+  uint64 app_id = 1;
+  string version = 2;
+}
+message QueryVersionResponse {
+  Version version = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryRequestRequest {
+  uint64 id = 1;
+}
+message QueryRequestResponse {
+  Request request = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryRequestsRequest {
+  // status filters by status when not REQUEST_STATUS_UNSPECIFIED.
+  RequestStatus status = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+message QueryRequestsResponse {
+  repeated Request requests = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryVotesRequest {
+  uint64 request_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+message QueryVotesResponse {
+  repeated Vote votes = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

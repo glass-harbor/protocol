@@ -1,0 +1,100 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "amino/amino.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+// App is a registered application (SPEC §6.2).
+message App {
+  uint64 id = 1;
+  string owner = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string title = 3;
+  string description = 4;
+  bytes icon = 5;
+  string icon_mime = 6;
+  string website = 7;
+  string source_url = 8;
+  string category = 9;
+  repeated string tags = 10;
+  bool deprecated = 11;
+  // latest_version is the semver of the version with the highest seq; empty if none.
+  string latest_version = 12;
+  // version_count is the number of versions ever published; also the next seq.
+  uint64 version_count = 13;
+  int64 created_height = 14;
+  int64 updated_height = 15;
+}
+
+// Version is an immutable release of an app (SPEC §6.2).
+message Version {
+  uint64 app_id = 1;
+  string version = 2;
+  uint64 seq = 3;
+  string magnet = 4;
+  string checksum_sha256 = 5;
+  uint64 file_size = 6;
+  string min_jetty_version = 7;
+  string publisher = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 publish_height = 9;
+  google.protobuf.Timestamp publish_time = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bool yanked = 11;
+  bool blue_check = 12;
+  uint64 blue_check_request_id = 13;
+}
+
+// RequestKind distinguishes verification from revocation requests.
+enum RequestKind {
+  option (gogoproto.goproto_enum_prefix) = false;
+  REQUEST_KIND_UNSPECIFIED = 0;
+  REQUEST_KIND_VERIFY = 1;
+  REQUEST_KIND_REVOKE = 2;
+}
+
+// RequestStatus is the lifecycle state of a request.
+enum RequestStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+  REQUEST_STATUS_UNSPECIFIED = 0;
+  REQUEST_STATUS_OPEN = 1;
+  REQUEST_STATUS_PASSED = 2;
+  REQUEST_STATUS_FAILED = 3;
+  REQUEST_STATUS_CANCELLED = 4;
+}
+
+// VoteOption is a validator's vote on a request.
+enum VoteOption {
+  option (gogoproto.goproto_enum_prefix) = false;
+  VOTE_OPTION_UNSPECIFIED = 0;
+  VOTE_OPTION_YES = 1;
+  VOTE_OPTION_NO = 2;
+}
+
+// Request is a blue-check verification or revocation request (SPEC §6.2).
+message Request {
+  uint64 id = 1;
+  RequestKind kind = 2;
+  uint64 app_id = 3;
+  string version = 4;
+  string requester = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  cosmos.base.v1beta1.Coin escrow = 6 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  RequestStatus status = 7;
+  int64 submit_height = 8;
+  google.protobuf.Timestamp submit_time = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp expires_at = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  int64 resolved_height = 11;
+  string yes_power = 12 [(cosmos_proto.scalar) = "cosmos.Int", (gogoproto.customtype) = "cosmossdk.io/math.Int", (gogoproto.nullable) = false];
+  string no_power = 13 [(cosmos_proto.scalar) = "cosmos.Int", (gogoproto.customtype) = "cosmossdk.io/math.Int", (gogoproto.nullable) = false];
+  string total_power = 14 [(cosmos_proto.scalar) = "cosmos.Int", (gogoproto.customtype) = "cosmossdk.io/math.Int", (gogoproto.nullable) = false];
+}
+
+// Vote is a validator's current vote on a request.
+message Vote {
+  uint64 request_id = 1;
+  string validator = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  VoteOption option = 3;
+  int64 height = 4;
+}

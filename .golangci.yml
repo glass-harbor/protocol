@@ -1,0 +1,41 @@
+version: "2"
+run:
+  tests: true
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - errcheck
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    gocritic:
+      disabled-checks:
+        - regexpMust
+        - appendAssign
+        - ifElseChain
+  exclusions:
+    paths:
+      - ".*\\.pb\\.go$"
+      - ".*\\.pb\\.gw\\.go$"
+      - "x/registry/testutil/.*"
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/glass-harbor/protocol
+  exclusions:
+    paths:
+      - ".*\\.pb\\.go$"
+      - ".*\\.pb\\.gw\\.go$"
+      - "x/registry/testutil/.*"

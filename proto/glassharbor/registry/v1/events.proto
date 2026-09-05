@@ -1,0 +1,74 @@
+syntax = "proto3";
+package glassharbor.registry.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "glassharbor/registry/v1/registry.proto";
+
+option go_package = "github.com/glass-harbor/protocol/x/registry/types";
+
+message EventAppCreated {
+  uint64 id = 1;
+  string owner = 2;
+}
+message EventAppUpdated {
+  uint64 id = 1;
+}
+message EventAppTransferred {
+  uint64 id = 1;
+  string from = 2;
+  string to = 3;
+}
+message EventAppDeprecated {
+  uint64 id = 1;
+  bool deprecated = 2;
+}
+message EventVersionPublished {
+  uint64 app_id = 1;
+  string version = 2;
+  uint64 seq = 3;
+  string publisher = 4;
+}
+message EventVersionYanked {
+  uint64 app_id = 1;
+  string version = 2;
+}
+message EventRequestCreated {
+  uint64 id = 1;
+  RequestKind kind = 2;
+  uint64 app_id = 3;
+  string version = 4;
+  string requester = 5;
+  cosmos.base.v1beta1.Coin escrow = 6 [(gogoproto.nullable) = false];
+  google.protobuf.Timestamp expires_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+message EventVoted {
+  uint64 request_id = 1;
+  string validator = 2;
+  VoteOption option = 3;
+}
+message EventRequestResolved {
+  uint64 id = 1;
+  RequestStatus status = 2;
+  string yes_power = 3;
+  string no_power = 4;
+  string total_power = 5;
+}
+message EventEscrowPaid {
+  uint64 request_id = 1;
+  cosmos.base.v1beta1.Coin treasury_amount = 2 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin validator_amount = 3 [(gogoproto.nullable) = false];
+}
+message EventEscrowRefunded {
+  uint64 request_id = 1;
+  string to = 2;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+}
+message EventFeeCharged {
+  string payer = 1;
+  string kind = 2;
+  cosmos.base.v1beta1.Coin treasury_amount = 3 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin collector_amount = 4 [(gogoproto.nullable) = false];
+}
+message EventParamsUpdated {}
