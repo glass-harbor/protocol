@@ -151,7 +151,7 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 ```
 .
 ├── app/                        # app.go, ante.go, config.go, export.go, genesis.go, test_helpers.go
-├── cmd/harbord/                # main.go, cmd/root.go (simapp-style)
+├── cmd/harbord/                # main.go, cmd/root.go, cmd/commands.go (simapp-style)
 ├── docs/SPEC.md                # this file
 ├── proto/glassharbor/registry/v1/
 │   ├── registry.proto          # App, Version, Request, Vote, enums
@@ -171,6 +171,7 @@ the default sequential executor is used. Begin/end blocker order: `registry` End
 │   └── testutil/               # gomock mocks generated from expected_keepers.go
 ├── scripts/
 │   ├── localnet.sh             # init + start single validator
+│   ├── smoke.sh                # §9 end-to-end flow against a running localnet
 │   └── protocgen.sh
 ├── tests/integration/          # message-level integration tests against a real app
 ├── Dockerfile
@@ -415,7 +416,7 @@ aborts the tx with the named error and no state change.
 | Signer | `owner` |
 | Checks | app exists; `owner == app.owner`; version exists → `ErrVersionNotFound`; `!version.yanked` → `ErrVersionYanked` |
 | State | `version.yanked = true`; `version.blue_check = false`; `version.blue_check_request_id = 0`. If `OpenRequestByVersion` has an entry: mark that request `CANCELLED`, `resolved_height = height`, refund escrow to `requester`, remove from `OpenRequestByVersion`, `ExpiryQueue`, and move in `RequestsByStatus`. `app.updated_height = height`. |
-| Events | `EventVersionYanked{ app_id, version }`; `EventRequestResolved{ id, status: CANCELLED }` if a request was cancelled |
+| Events | if a request was cancelled: `EventRequestResolved{ id, status: CANCELLED }` then `EventEscrowRefunded` (when escrow > 0); then `EventVersionYanked{ app_id, version }` (order per §6.6) |
 
 #### MsgRequestBlueCheck
 
