@@ -247,7 +247,7 @@ func (m msgServer) RequestBlueCheck(goCtx context.Context, msg *types.MsgRequest
 		return nil, errorsmod.Wrapf(types.ErrRequestExists, "%d/%s", app.Id, msg.Version)
 	}
 	escrow := zeroEscrow()
-	if msg.Escrow != nil && !msg.Escrow.Amount.IsNil() && !msg.Escrow.Amount.IsZero() {
+	if msg.Escrow != nil && (msg.Escrow.Amount.IsNil() || !msg.Escrow.Amount.IsZero()) {
 		if err := msg.Escrow.Validate(); err != nil {
 			return nil, errorsmod.Wrap(types.ErrInvalidEscrow, err.Error())
 		}
@@ -263,6 +263,10 @@ func (m msgServer) RequestBlueCheck(goCtx context.Context, msg *types.MsgRequest
 	}
 	id, err := m.openRequest(ctx, types.REQUEST_KIND_VERIFY, app.Id, msg.Version, app.Owner, escrow)
 	if err != nil {
+		return nil, err
+	}
+	app.UpdatedHeight = ctx.BlockHeight()
+	if err := m.Apps.Set(ctx, app.Id, app); err != nil {
 		return nil, err
 	}
 	return &types.MsgRequestBlueCheckResponse{Id: id}, nil

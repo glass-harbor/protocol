@@ -18,6 +18,9 @@ func (gs GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}
+	if gs.NextAppId == 0 || gs.NextRequestId == 0 {
+		return fmt.Errorf("next_app_id and next_request_id must be positive")
+	}
 	apps := make(map[uint64]App, len(gs.Apps))
 	for _, a := range gs.Apps {
 		if a.Id == 0 || a.Id >= gs.NextAppId {

@@ -45,7 +45,7 @@ func (k Keeper) resolveRequest(ctx sdk.Context, id uint64) error {
 		return err
 	}
 	if req.Status != types.REQUEST_STATUS_OPEN {
-		return fmt.Errorf("invariant violated: request %d in expiry queue has status %s", id, req.Status)
+		panic(fmt.Errorf("invariant violated: request %d in expiry queue has status %s", id, req.Status))
 	}
 	yes, no, total, voters, err := k.tally(ctx, id)
 	if err != nil {
@@ -57,7 +57,10 @@ func (k Keeper) resolveRequest(ctx sdk.Context, id uint64) error {
 		if err := k.closeRequest(ctx, &req, types.REQUEST_STATUS_FAILED); err != nil {
 			return err
 		}
-		return k.refundEscrow(ctx, req)
+		if err := k.refundEscrow(ctx, req); err != nil {
+			panic(err)
+		}
+		return nil
 	}
 
 	v, err := k.getVersion(ctx, req.AppId, req.Version)
@@ -81,7 +84,9 @@ func (k Keeper) resolveRequest(ctx sdk.Context, id uint64) error {
 		return err
 	}
 	if req.Kind == types.REQUEST_KIND_VERIFY {
-		return k.payoutEscrow(ctx, req, voters)
+		if err := k.payoutEscrow(ctx, req, voters); err != nil {
+			panic(err)
+		}
 	}
 	return nil
 }

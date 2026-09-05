@@ -1,6 +1,9 @@
 package keeper_test
 
 import (
+	"strconv"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 	"go.uber.org/mock/gomock"
 
 	"cosmossdk.io/math"
@@ -12,6 +15,14 @@ import (
 )
 
 func coins(amt int64) sdk.Coins { return sdk.NewCoins(sdk.NewInt64Coin("uglass", amt)) }
+
+func (s *KeeperTestSuite) requireEventCoin(event, field, amount string) {
+	events := s.ctx.EventManager().Events()
+	s.Require().NotEmpty(events)
+	last := events[len(events)-1]
+	s.Require().Equal("glassharbor.registry.v1."+event, last.Type)
+	s.Require().Contains(last.Attributes, abci.EventAttribute{Key: field, Value: strconv.Quote(amount)})
+}
 
 func (s *KeeperTestSuite) expectFee(payer sdk.AccAddress, total, treasuryCut int64) {
 	if treasuryCut > 0 {
@@ -27,6 +38,8 @@ func (s *KeeperTestSuite) TestChargeFeeSplit() {
 	p.TreasuryAddress = treasury.String()
 	s.expectFee(owner, 10_000_000, 1_000_000)
 	s.Require().NoError(s.keeper.ChargeFeeForTest(s.ctx, p, owner, p.CreateAppFee, "create_app"))
+	s.requireEventCoin("EventFeeCharged", "treasury_amount", "1000000uglass")
+	s.requireEventCoin("EventFeeCharged", "collector_amount", "9000000uglass")
 }
 
 func (s *KeeperTestSuite) TestChargeFeeRoundsDownAndZero() {

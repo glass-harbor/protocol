@@ -44,16 +44,17 @@ func TestValidateMagnet(t *testing.T) {
 		in string
 		ok bool
 	}{
-		"hex btih":    {goodMagnet, true},
-		"base32 btih": {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U", true},
-		"upper hex":   {"magnet:?xt=urn:btih:C12FE1C06BBA254A9DC9F519B335AA7C1367A88A", true},
-		"second xt":   {"magnet:?xt=urn:sha1:abc&xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", true},
-		"btmh only":   {"magnet:?xt=urn:btmh:1220c12fe1c06bba254a9dc9f519b335aa7c1367a88ac12fe1c06bba254a9dc9f519b3", false},
-		"http scheme": {"http://example.com/?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", false},
-		"short hash":  {"magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88", false},
-		"no xt":       {"magnet:?dn=foo", false},
-		"empty":       {"", false},
-		"too long":    {goodMagnet + "&dn=" + strings.Repeat("x", 2048), false},
+		"hex btih":      {goodMagnet, true},
+		"invalid UTF-8": {goodMagnet + "\xff", false},
+		"base32 btih":   {"magnet:?xt=urn:btih:MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U", true},
+		"upper hex":     {"magnet:?xt=urn:btih:C12FE1C06BBA254A9DC9F519B335AA7C1367A88A", true},
+		"second xt":     {"magnet:?xt=urn:sha1:abc&xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", true},
+		"btmh only":     {"magnet:?xt=urn:btmh:1220c12fe1c06bba254a9dc9f519b335aa7c1367a88ac12fe1c06bba254a9dc9f519b3", false},
+		"http scheme":   {"http://example.com/?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", false},
+		"short hash":    {"magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88", false},
+		"no xt":         {"magnet:?dn=foo", false},
+		"empty":         {"", false},
+		"too long":      {goodMagnet + "&dn=" + strings.Repeat("x", 2048), false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -85,6 +86,7 @@ func TestValidateIcon(t *testing.T) {
 	require.NoError(t, types.ValidateIcon(png, types.MimePNG, 100))
 	require.NoError(t, types.ValidateIcon(svg, types.MimeSVG, 100))
 	require.NoError(t, types.ValidateIcon(xmlSvg, types.MimeSVG, 100))
+	require.NoError(t, types.ValidateIcon([]byte("\v\f\u00a0<svg/>"), types.MimeSVG, 100))
 
 	require.ErrorIs(t, types.ValidateIcon(nil, types.MimePNG, 100), types.ErrInvalidIcon)
 	require.ErrorIs(t, types.ValidateIcon(png, "", 100), types.ErrInvalidIcon)
@@ -99,6 +101,7 @@ func TestValidateHTTPURL(t *testing.T) {
 	require.NoError(t, types.ValidateHTTPURL("", 256))
 	require.NoError(t, types.ValidateHTTPURL("https://example.com/x", 256))
 	require.NoError(t, types.ValidateHTTPURL("http://example.com", 256))
+	require.ErrorIs(t, types.ValidateHTTPURL("https://example.com/\xff", 256), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateHTTPURL("ftp://example.com", 256), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateHTTPURL("https:///nohost", 256), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateHTTPURL("https://"+strings.Repeat("a", 256), 256), types.ErrInvalidField)
@@ -130,6 +133,7 @@ func TestValidateAppMetadata(t *testing.T) {
 	require.ErrorIs(t, types.ValidateAppMetadata(p, "", "d", nil, "", "", "", "wallet", nil), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateAppMetadata(p, " padded", "d", nil, "", "", "", "wallet", nil), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateAppMetadata(p, "t", "d", nil, "", "", "", "nope", nil), types.ErrInvalidCategory)
+	require.ErrorIs(t, types.ValidateAppMetadata(p, "t", "d", nil, "", "", "", "nope", []string{"Bad Tag"}), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateAppMetadata(p, "t", strings.Repeat("d", 4097), nil, "", "", "", "wallet", nil), types.ErrInvalidField)
 	require.ErrorIs(t, types.ValidateAppMetadata(p, "t", "d", []byte("x"), "image/gif", "", "", "wallet", nil), types.ErrInvalidIcon)
 }

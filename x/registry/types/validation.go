@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/Masterminds/semver/v3"
@@ -36,6 +37,9 @@ func ValidateSemver(s string, maxBytes uint32) error {
 
 // ValidateMagnet requires scheme magnet and at least one xt=urn:btih:<40 hex | 32 base32>.
 func ValidateMagnet(s string, maxBytes uint32) error {
+	if !utf8.ValidString(s) {
+		return errorsmod.Wrap(ErrInvalidMagnet, "magnet is not valid UTF-8")
+	}
 	if len(s) == 0 || len(s) > int(maxBytes) {
 		return errorsmod.Wrapf(ErrInvalidMagnet, "length %d not in 1..%d", len(s), maxBytes)
 	}
@@ -82,7 +86,7 @@ func ValidateIcon(icon []byte, mime string, maxBytes uint32) error {
 		if !utf8.Valid(icon) {
 			return errorsmod.Wrap(ErrInvalidIcon, "svg is not valid UTF-8")
 		}
-		trimmed := bytes.TrimLeft(icon, " \t\r\n")
+		trimmed := bytes.TrimLeftFunc(icon, unicode.IsSpace)
 		if !bytes.HasPrefix(trimmed, []byte("<svg")) && !bytes.HasPrefix(trimmed, []byte("<?xml")) {
 			return errorsmod.Wrap(ErrInvalidIcon, "svg must start with <svg or <?xml")
 		}
@@ -97,8 +101,8 @@ func ValidateHTTPURL(s string, maxBytes uint32) error {
 	if s == "" {
 		return nil
 	}
-	if len(s) > int(maxBytes) {
-		return errorsmod.Wrapf(ErrInvalidField, "url: %d bytes > max %d", len(s), maxBytes)
+	if err := ValidateText(s, maxBytes); err != nil {
+		return errorsmod.Wrap(err, "url")
 	}
 	u, err := url.Parse(s)
 	if err != nil {
@@ -162,6 +166,9 @@ func ValidateAppMetadata(p Params, title, description string, icon []byte, iconM
 	if err := ValidateHTTPURL(sourceURL, p.MaxSourceUrlBytes); err != nil {
 		return errorsmod.Wrap(err, "source_url")
 	}
+	if err := ValidateTags(tags, p.MaxTags, p.MaxTagBytes); err != nil {
+		return err
+	}
 	found := false
 	for _, c := range p.Categories {
 		if c == category {
@@ -172,5 +179,5 @@ func ValidateAppMetadata(p Params, title, description string, icon []byte, iconM
 	if !found {
 		return errorsmod.Wrapf(ErrInvalidCategory, "%q", category)
 	}
-	return ValidateTags(tags, p.MaxTags, p.MaxTagBytes)
+	return nil
 }

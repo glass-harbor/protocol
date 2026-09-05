@@ -6,6 +6,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"cosmossdk.io/collections"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -34,6 +35,7 @@ func (s *KeeperTestSuite) TestRequestBlueCheck() {
 	id := s.createApp(owner)
 	s.publish(owner, id, "1.0.0")
 	reqID := s.requestVerify(owner, id, "1.0.0", 1_000_000)
+	s.requireEventCoin("EventRequestCreated", "escrow", "1000000uglass")
 	s.Require().Equal(uint64(1), reqID)
 
 	req, err := s.keeper.Requests.Get(s.ctx, reqID)
@@ -76,6 +78,23 @@ func (s *KeeperTestSuite) TestRequestBlueCheckEscrowRules() {
 	bad := sdk.NewInt64Coin("stake", 5)
 	_, err = s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{Owner: owner.String(), AppId: id, Version: "1.0.2", Escrow: &bad})
 	s.Require().ErrorIs(err, types.ErrInvalidEscrow)
+	for _, amount := range []math.Int{{}, math.NewInt(-1)} {
+		bad = sdk.Coin{Denom: "uglass", Amount: amount}
+		_, err = s.msgServer.RequestBlueCheck(s.ctx, &types.MsgRequestBlueCheck{Owner: owner.String(), AppId: id, Version: "1.0.2", Escrow: &bad})
+		s.Require().ErrorIs(err, types.ErrInvalidEscrow)
+	}
+}
+
+func (s *KeeperTestSuite) TestRequestBlueCheckUpdatesAppHeight() {
+	id := s.createApp(owner)
+	s.publish(owner, id, "1.0.0")
+	_, err := s.msgServer.RequestBlueCheck(s.ctx.WithBlockHeight(42), &types.MsgRequestBlueCheck{
+		Owner: owner.String(), AppId: id, Version: "1.0.0",
+	})
+	s.Require().NoError(err)
+	app, err := s.keeper.Apps.Get(s.ctx, id)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(42), app.UpdatedHeight)
 }
 
 func (s *KeeperTestSuite) TestRequestBlueCheckRejections() {
@@ -135,6 +154,16 @@ func (s *KeeperTestSuite) TestVote() {
 	s.stakingKeeper.EXPECT().GetValidator(gomock.Any(), valAddr2).Return(unbonded, nil)
 	_, err = s.msgServer.Vote(s.ctx, &types.MsgVote{Validator: valAddr2.String(), RequestId: reqID, Option: types.VOTE_OPTION_YES})
 	s.Require().ErrorIs(err, types.ErrNotBondedValidator)
+
+	// Tally must count the replacement NO vote, not the original YES vote.
+	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(10), nil)
+	s.expectBonded(valAddr, 10)
+	s.Require().NoError(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	req, err := s.keeper.Requests.Get(s.ctx, reqID)
+	s.Require().NoError(err)
+	s.Require().True(req.YesPower.IsZero())
+	s.Require().Equal(math.NewInt(10), req.NoPower)
+	s.Require().Equal(types.REQUEST_STATUS_FAILED, req.Status)
 }
 
 func (s *KeeperTestSuite) TestRequestRevocation() {

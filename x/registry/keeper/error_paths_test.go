@@ -124,7 +124,7 @@ func (s *KeeperTestSuite) TestEndBlockerErrorsOnResolvedRequestInQueue() {
 	s.Require().NoError(err)
 	req.Status = types.REQUEST_STATUS_CANCELLED
 	s.Require().NoError(s.keeper.Requests.Set(s.ctx, reqID, req))
-	s.Require().ErrorContains(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)), "invariant violated")
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 func (s *KeeperTestSuite) TestEndBlockerErrorsOnUnknownRequestKind() {
@@ -186,14 +186,14 @@ func (s *KeeperTestSuite) TestRefundEscrowSurfacesRequesterDecodeError() {
 	s.Require().NoError(s.keeper.Requests.Set(s.ctx, reqID, req))
 
 	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(3), nil)
-	s.Require().Error(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 func (s *KeeperTestSuite) TestRefundEscrowSurfacesBankError() {
 	s.setupVerifyRequest(500)
 	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(3), nil)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, owner, coins(500)).Return(errBoom)
-	s.Require().ErrorIs(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)), errBoom)
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 func (s *KeeperTestSuite) TestPayoutEscrowSurfacesTreasuryDecodeError() {
@@ -206,7 +206,7 @@ func (s *KeeperTestSuite) TestPayoutEscrowSurfacesTreasuryDecodeError() {
 
 	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(1), nil)
 	s.expectBonded(valAddr, 1)
-	s.Require().Error(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)))
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 func (s *KeeperTestSuite) TestPayoutEscrowSurfacesVoterBankError() {
@@ -215,7 +215,7 @@ func (s *KeeperTestSuite) TestPayoutEscrowSurfacesVoterBankError() {
 	s.stakingKeeper.EXPECT().TotalValidatorPower(gomock.Any()).Return(math.NewInt(1), nil)
 	s.expectBonded(valAddr, 1)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(valAddr), coins(900)).Return(errBoom)
-	s.Require().ErrorIs(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)), errBoom)
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 func (s *KeeperTestSuite) TestPayoutEscrowSurfacesTreasuryBankError() {
@@ -225,7 +225,7 @@ func (s *KeeperTestSuite) TestPayoutEscrowSurfacesTreasuryBankError() {
 	s.expectBonded(valAddr, 1)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, sdk.AccAddress(valAddr), coins(900)).Return(nil)
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, treasury, coins(100)).Return(errBoom)
-	s.Require().ErrorIs(s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)), errBoom)
+	s.Require().Panics(func() { _ = s.keeper.EndBlocker(s.ctx.WithBlockTime(expiry)) })
 }
 
 // escrow 10 -> treasury cut 1, rest 9; powers 1 and 1000 mean the small voter's share

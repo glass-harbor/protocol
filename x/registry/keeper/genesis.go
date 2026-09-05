@@ -10,6 +10,9 @@ import (
 
 // InitGenesis writes source-of-truth collections and rebuilds every index (SPEC §6.10).
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) error {
+	if err := gs.Validate(); err != nil {
+		return err
+	}
 	if err := k.validateTreasury(ctx, gs.Params.TreasuryAddress); err != nil {
 		return err
 	}

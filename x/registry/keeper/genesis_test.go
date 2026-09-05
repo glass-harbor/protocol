@@ -54,3 +54,14 @@ func (s *KeeperTestSuite) TestInitGenesisRejectsBlockedTreasury() {
 	gs.Params.TreasuryAddress = treasury.String()
 	s.Require().ErrorIs(fresh.keeper.InitGenesis(fresh.ctx, gs), types.ErrInvalidParams)
 }
+
+func (s *KeeperTestSuite) TestInitGenesisValidatesBeforeWriting() {
+	gs := types.DefaultGenesisState()
+	gs.NextAppId = 0
+	before, err := s.keeper.ExportGenesis(s.ctx)
+	s.Require().NoError(err)
+	s.Require().ErrorContains(s.keeper.InitGenesis(s.ctx, gs), "must be positive")
+	after, err := s.keeper.ExportGenesis(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(before, after)
+}
