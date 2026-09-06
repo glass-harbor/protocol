@@ -23,9 +23,11 @@ adding it to the spec in the same change.
 | Proto stale check | `make proto-check` | CI fails if you edit `.proto` and forget to regen |
 | Regenerate mocks | `make mocks` | Run after touching `x/registry/types/expected_keepers.go` |
 | Localnet | `scripts/localnet.sh init\|start\|reset` then `scripts/smoke.sh` | Needs `jq`; home is `~/.harbord-local` |
+| Regression | `make test-regression` | Needs `jq`; `-run 'TestRegression/<suite>'` from `tests/regression`; ops in `tests/regression/README.md` |
 
 CI (`.github/workflows/ci.yml`) runs build, lint, proto-lint, proto-check, `make test`,
-docker build, and the smoke script. Run lint and the relevant tests before claiming done.
+the regression suites, docker build, and the smoke script. Run lint and the relevant
+tests before claiming done.
 
 ## Keeper rules (§12, non-negotiable)
 

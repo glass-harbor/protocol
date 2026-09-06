@@ -18,6 +18,7 @@ optionally earning an escrowed reward.
 | `proto/` | Protobuf definitions |
 | `scripts/` | Localnet, smoke test, proto generation |
 | `tests/integration/` | Full-app tests through the message router |
+| `tests/regression/` | YAML regression suites against a regtest-built node |
 | `docs/SPEC.md` | Specification |
 
 ## Build and test
@@ -26,6 +27,7 @@ optionally earning an escrowed reward.
 make build          # binary in build/
 make test           # unit + integration, -race
 make test-unit      # faster while iterating
+make test-regression  # YAML suites, needs jq
 make lint
 make proto-gen      # needs Docker; run after editing .proto
 make mocks          # run after editing x/registry/types/expected_keepers.go
