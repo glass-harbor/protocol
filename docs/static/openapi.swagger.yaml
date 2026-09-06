@@ -1,0 +1,710 @@
+swagger: "2.0"
+info:
+  title: Glass Harbor Registry API
+  version: v1
+tags:
+  - name: Query
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /glassharbor/registry/v1/apps:
+    get:
+      operationId: Apps
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryAppsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: owner
+          description: owner filters by owner address when non-empty.
+          in: query
+          required: false
+          type: string
+        - name: pagination.key
+          description: |-
+            key is a value returned in PageResponse.next_key to begin
+            querying the next page most efficiently. Only one of offset or key
+            should be set.
+          in: query
+          required: false
+          type: string
+          format: byte
+        - name: pagination.offset
+          description: |-
+            offset is a numeric offset that can be used when key is unavailable.
+            It is less efficient than using key. Only one of offset or key should
+            be set.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.limit
+          description: |-
+            limit is the total number of results to be returned in the result page.
+            If left empty it will default to a value to be set by each app.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.count_total
+          description: |-
+            count_total is set to true  to indicate that the result set should include
+            a count of the total number of items available for pagination in UIs.
+            count_total is only respected when offset is used. It is ignored when key
+            is set.
+          in: query
+          required: false
+          type: boolean
+        - name: pagination.reverse
+          description: reverse is set to true if results are to be returned in the descending order.
+          in: query
+          required: false
+          type: boolean
+      tags:
+        - Query
+  /glassharbor/registry/v1/apps/{app_id}/versions:
+    get:
+      operationId: Versions
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryVersionsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          type: string
+          format: uint64
+        - name: pagination.key
+          description: |-
+            key is a value returned in PageResponse.next_key to begin
+            querying the next page most efficiently. Only one of offset or key
+            should be set.
+          in: query
+          required: false
+          type: string
+          format: byte
+        - name: pagination.offset
+          description: |-
+            offset is a numeric offset that can be used when key is unavailable.
+            It is less efficient than using key. Only one of offset or key should
+            be set.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.limit
+          description: |-
+            limit is the total number of results to be returned in the result page.
+            If left empty it will default to a value to be set by each app.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.count_total
+          description: |-
+            count_total is set to true  to indicate that the result set should include
+            a count of the total number of items available for pagination in UIs.
+            count_total is only respected when offset is used. It is ignored when key
+            is set.
+          in: query
+          required: false
+          type: boolean
+        - name: pagination.reverse
+          description: reverse is set to true if results are to be returned in the descending order.
+          in: query
+          required: false
+          type: boolean
+      tags:
+        - Query
+  /glassharbor/registry/v1/apps/{app_id}/versions/{version}:
+    get:
+      operationId: Version
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryVersionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          type: string
+          format: uint64
+        - name: version
+          in: path
+          required: true
+          type: string
+      tags:
+        - Query
+  /glassharbor/registry/v1/apps/{id}:
+    get:
+      operationId: App
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryAppResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uint64
+      tags:
+        - Query
+  /glassharbor/registry/v1/params:
+    get:
+      operationId: Params
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryParamsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      tags:
+        - Query
+  /glassharbor/registry/v1/requests:
+    get:
+      operationId: Requests
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryRequestsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: status
+          description: status filters by status when not REQUEST_STATUS_UNSPECIFIED.
+          in: query
+          required: false
+          type: string
+          enum:
+            - REQUEST_STATUS_UNSPECIFIED
+            - REQUEST_STATUS_OPEN
+            - REQUEST_STATUS_PASSED
+            - REQUEST_STATUS_FAILED
+            - REQUEST_STATUS_CANCELLED
+          default: REQUEST_STATUS_UNSPECIFIED
+        - name: pagination.key
+          description: |-
+            key is a value returned in PageResponse.next_key to begin
+            querying the next page most efficiently. Only one of offset or key
+            should be set.
+          in: query
+          required: false
+          type: string
+          format: byte
+        - name: pagination.offset
+          description: |-
+            offset is a numeric offset that can be used when key is unavailable.
+            It is less efficient than using key. Only one of offset or key should
+            be set.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.limit
+          description: |-
+            limit is the total number of results to be returned in the result page.
+            If left empty it will default to a value to be set by each app.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.count_total
+          description: |-
+            count_total is set to true  to indicate that the result set should include
+            a count of the total number of items available for pagination in UIs.
+            count_total is only respected when offset is used. It is ignored when key
+            is set.
+          in: query
+          required: false
+          type: boolean
+        - name: pagination.reverse
+          description: reverse is set to true if results are to be returned in the descending order.
+          in: query
+          required: false
+          type: boolean
+      tags:
+        - Query
+  /glassharbor/registry/v1/requests/{id}:
+    get:
+      operationId: Request
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryRequestResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uint64
+      tags:
+        - Query
+  /glassharbor/registry/v1/requests/{request_id}/votes:
+    get:
+      operationId: Votes
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/glassharbor.registry.v1.QueryVotesResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/google.rpc.Status'
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          type: string
+          format: uint64
+        - name: pagination.key
+          description: |-
+            key is a value returned in PageResponse.next_key to begin
+            querying the next page most efficiently. Only one of offset or key
+            should be set.
+          in: query
+          required: false
+          type: string
+          format: byte
+        - name: pagination.offset
+          description: |-
+            offset is a numeric offset that can be used when key is unavailable.
+            It is less efficient than using key. Only one of offset or key should
+            be set.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.limit
+          description: |-
+            limit is the total number of results to be returned in the result page.
+            If left empty it will default to a value to be set by each app.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: pagination.count_total
+          description: |-
+            count_total is set to true  to indicate that the result set should include
+            a count of the total number of items available for pagination in UIs.
+            count_total is only respected when offset is used. It is ignored when key
+            is set.
+          in: query
+          required: false
+          type: boolean
+        - name: pagination.reverse
+          description: reverse is set to true if results are to be returned in the descending order.
+          in: query
+          required: false
+          type: boolean
+      tags:
+        - Query
+definitions:
+  cosmos.base.query.v1beta1.PageRequest:
+    type: object
+    properties:
+      key:
+        type: string
+        format: byte
+        description: |-
+          key is a value returned in PageResponse.next_key to begin
+          querying the next page most efficiently. Only one of offset or key
+          should be set.
+      offset:
+        type: string
+        format: uint64
+        description: |-
+          offset is a numeric offset that can be used when key is unavailable.
+          It is less efficient than using key. Only one of offset or key should
+          be set.
+      limit:
+        type: string
+        format: uint64
+        description: |-
+          limit is the total number of results to be returned in the result page.
+          If left empty it will default to a value to be set by each app.
+      count_total:
+        type: boolean
+        description: |-
+          count_total is set to true  to indicate that the result set should include
+          a count of the total number of items available for pagination in UIs.
+          count_total is only respected when offset is used. It is ignored when key
+          is set.
+      reverse:
+        type: boolean
+        description: reverse is set to true if results are to be returned in the descending order.
+    description: |-
+      message SomeRequest {
+               Foo some_parameter = 1;
+               PageRequest pagination = 2;
+       }
+    title: |-
+      PageRequest is to be embedded in gRPC request messages for efficient
+      pagination. Ex:
+  cosmos.base.query.v1beta1.PageResponse:
+    type: object
+    properties:
+      next_key:
+        type: string
+        format: byte
+        description: |-
+          next_key is the key to be passed to PageRequest.key to
+          query the next page most efficiently. It will be empty if
+          there are no more results.
+      total:
+        type: string
+        format: uint64
+        title: |-
+          total is total number of results available if PageRequest.count_total
+          was set, its value is undefined otherwise
+    description: |-
+      PageResponse is to be embedded in gRPC response messages where the
+      corresponding request message has used PageRequest.
+
+       message SomeResponse {
+               repeated Bar results = 1;
+               PageResponse page = 2;
+       }
+  cosmos.base.v1beta1.Coin:
+    type: object
+    properties:
+      denom:
+        type: string
+      amount:
+        type: string
+    description: |-
+      Coin defines a token with a denomination and an amount.
+
+      NOTE: The amount field is an Int which implements the custom method
+      signatures required by gogoproto.
+  glassharbor.registry.v1.App:
+    type: object
+    properties:
+      id:
+        type: string
+        format: uint64
+      owner:
+        type: string
+      title:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+        format: byte
+      icon_mime:
+        type: string
+      website:
+        type: string
+      source_url:
+        type: string
+      category:
+        type: string
+      tags:
+        type: array
+        items:
+          type: string
+      deprecated:
+        type: boolean
+      latest_version:
+        type: string
+        description: latest_version is the semver of the version with the highest seq; empty if none.
+      version_count:
+        type: string
+        format: uint64
+        description: version_count is the number of versions ever published; also the next seq.
+      created_height:
+        type: string
+        format: int64
+      updated_height:
+        type: string
+        format: int64
+    description: App is a registered application (SPEC §6.2).
+  glassharbor.registry.v1.AppWithStatus:
+    type: object
+    properties:
+      app:
+        $ref: '#/definitions/glassharbor.registry.v1.App'
+      verified:
+        type: boolean
+    description: AppWithStatus pairs an app with its derived verified flag.
+  glassharbor.registry.v1.Params:
+    type: object
+    properties:
+      create_app_fee:
+        $ref: '#/definitions/cosmos.base.v1beta1.Coin'
+      publish_version_fee:
+        $ref: '#/definitions/cosmos.base.v1beta1.Coin'
+      upload_fee_treasury_rate:
+        type: string
+      bluecheck_treasury_rate:
+        type: string
+      treasury_address:
+        type: string
+      voting_period:
+        type: string
+      categories:
+        type: array
+        items:
+          type: string
+      max_title_bytes:
+        type: integer
+        format: int64
+      max_description_bytes:
+        type: integer
+        format: int64
+      max_tags:
+        type: integer
+        format: int64
+      max_tag_bytes:
+        type: integer
+        format: int64
+      max_icon_bytes:
+        type: integer
+        format: int64
+      max_magnet_bytes:
+        type: integer
+        format: int64
+      max_min_jetty_version_bytes:
+        type: integer
+        format: int64
+      max_website_bytes:
+        type: integer
+        format: int64
+      max_source_url_bytes:
+        type: integer
+        format: int64
+      max_version_bytes:
+        type: integer
+        format: int64
+    description: Params defines the x/registry parameters (SPEC §6.1).
+  glassharbor.registry.v1.QueryAppResponse:
+    type: object
+    properties:
+      app:
+        $ref: '#/definitions/glassharbor.registry.v1.App'
+      verified:
+        type: boolean
+  glassharbor.registry.v1.QueryAppsResponse:
+    type: object
+    properties:
+      apps:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/glassharbor.registry.v1.AppWithStatus'
+      pagination:
+        $ref: '#/definitions/cosmos.base.query.v1beta1.PageResponse'
+  glassharbor.registry.v1.QueryParamsResponse:
+    type: object
+    properties:
+      params:
+        $ref: '#/definitions/glassharbor.registry.v1.Params'
+  glassharbor.registry.v1.QueryRequestResponse:
+    type: object
+    properties:
+      request:
+        $ref: '#/definitions/glassharbor.registry.v1.Request'
+  glassharbor.registry.v1.QueryRequestsResponse:
+    type: object
+    properties:
+      requests:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/glassharbor.registry.v1.Request'
+      pagination:
+        $ref: '#/definitions/cosmos.base.query.v1beta1.PageResponse'
+  glassharbor.registry.v1.QueryVersionResponse:
+    type: object
+    properties:
+      version:
+        $ref: '#/definitions/glassharbor.registry.v1.Version'
+  glassharbor.registry.v1.QueryVersionsResponse:
+    type: object
+    properties:
+      versions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/glassharbor.registry.v1.Version'
+      pagination:
+        $ref: '#/definitions/cosmos.base.query.v1beta1.PageResponse'
+  glassharbor.registry.v1.QueryVotesResponse:
+    type: object
+    properties:
+      votes:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/glassharbor.registry.v1.Vote'
+      pagination:
+        $ref: '#/definitions/cosmos.base.query.v1beta1.PageResponse'
+  glassharbor.registry.v1.Request:
+    type: object
+    properties:
+      id:
+        type: string
+        format: uint64
+      kind:
+        $ref: '#/definitions/glassharbor.registry.v1.RequestKind'
+      app_id:
+        type: string
+        format: uint64
+      version:
+        type: string
+      requester:
+        type: string
+      escrow:
+        $ref: '#/definitions/cosmos.base.v1beta1.Coin'
+      status:
+        $ref: '#/definitions/glassharbor.registry.v1.RequestStatus'
+      submit_height:
+        type: string
+        format: int64
+      submit_time:
+        type: string
+        format: date-time
+      expires_at:
+        type: string
+        format: date-time
+      resolved_height:
+        type: string
+        format: int64
+      yes_power:
+        type: string
+      no_power:
+        type: string
+      total_power:
+        type: string
+    description: Request is a blue-check verification or revocation request (SPEC §6.2).
+  glassharbor.registry.v1.RequestKind:
+    type: string
+    enum:
+      - REQUEST_KIND_UNSPECIFIED
+      - REQUEST_KIND_VERIFY
+      - REQUEST_KIND_REVOKE
+    default: REQUEST_KIND_UNSPECIFIED
+    description: RequestKind distinguishes verification from revocation requests.
+  glassharbor.registry.v1.RequestStatus:
+    type: string
+    enum:
+      - REQUEST_STATUS_UNSPECIFIED
+      - REQUEST_STATUS_OPEN
+      - REQUEST_STATUS_PASSED
+      - REQUEST_STATUS_FAILED
+      - REQUEST_STATUS_CANCELLED
+    default: REQUEST_STATUS_UNSPECIFIED
+    description: RequestStatus is the lifecycle state of a request.
+  glassharbor.registry.v1.Version:
+    type: object
+    properties:
+      app_id:
+        type: string
+        format: uint64
+      version:
+        type: string
+      seq:
+        type: string
+        format: uint64
+      magnet:
+        type: string
+      checksum_sha256:
+        type: string
+      file_size:
+        type: string
+        format: uint64
+      min_jetty_version:
+        type: string
+      publisher:
+        type: string
+      publish_height:
+        type: string
+        format: int64
+      publish_time:
+        type: string
+        format: date-time
+      yanked:
+        type: boolean
+      blue_check:
+        type: boolean
+      blue_check_request_id:
+        type: string
+        format: uint64
+    description: Version is an immutable release of an app (SPEC §6.2).
+  glassharbor.registry.v1.Vote:
+    type: object
+    properties:
+      request_id:
+        type: string
+        format: uint64
+      validator:
+        type: string
+      option:
+        $ref: '#/definitions/glassharbor.registry.v1.VoteOption'
+      height:
+        type: string
+        format: int64
+    description: Vote is a validator's current vote on a request.
+  glassharbor.registry.v1.VoteOption:
+    type: string
+    enum:
+      - VOTE_OPTION_UNSPECIFIED
+      - VOTE_OPTION_YES
+      - VOTE_OPTION_NO
+    default: VOTE_OPTION_UNSPECIFIED
+    description: VoteOption is a validator's vote on a request.
+  google.protobuf.Any:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  google.rpc.Status:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/google.protobuf.Any'

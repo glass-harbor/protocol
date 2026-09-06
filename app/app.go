@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -100,6 +101,7 @@ import (
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
+	"github.com/glass-harbor/protocol/docs"
 	"github.com/glass-harbor/protocol/x/registry"
 	registrykeeper "github.com/glass-harbor/protocol/x/registry/keeper"
 	registrytypes "github.com/glass-harbor/protocol/x/registry/types"
@@ -549,6 +551,15 @@ func (app *App) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfig
 	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 	nodeservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 	app.BasicModuleManager.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	if apiConfig.Swagger {
+		spec := func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/yaml")
+			_, _ = w.Write(docs.OpenAPI)
+		}
+		// Registered before RegisterSwaggerAPI so it shadows the SDK's stock spec inside the bundled UI (mux matches in order).
+		apiSvr.Router.HandleFunc("/swagger/swagger.yaml", spec)
+		apiSvr.Router.HandleFunc("/openapi.yaml", spec)
+	}
 	if err := server.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
 		panic(err)
 	}

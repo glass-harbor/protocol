@@ -10,6 +10,7 @@ KR=(--keyring-backend test --home "$HOME_DIR")
 init() {
   if [ -f "$HOME_DIR/config/genesis.json" ]; then
     echo "localnet already initialised at $HOME_DIR"
+    "$BIN" config set app api.swagger true --home "$HOME_DIR" --skip-validate
     return
   fi
   "$BIN" init local --chain-id "$CHAIN_ID" --default-denom uglass --home "$HOME_DIR" >/dev/null 2>&1
@@ -31,6 +32,7 @@ init() {
   "$BIN" genesis validate --home "$HOME_DIR"
   "$BIN" config set app minimum-gas-prices 0.001uglass --home "$HOME_DIR" --skip-validate
   "$BIN" config set app api.enable true --home "$HOME_DIR" --skip-validate
+  "$BIN" config set app api.swagger true --home "$HOME_DIR" --skip-validate
   "$BIN" config set config consensus.timeout_commit 1s --home "$HOME_DIR" --skip-validate
   echo "localnet initialised at $HOME_DIR (treasury=$treasury)"
 }

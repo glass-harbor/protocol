@@ -52,7 +52,7 @@ proto-lint:
 	@$(protoImage) sh -c "cd proto && buf lint"
 
 proto-check: proto-gen
-	@git diff --exit-code -- '*.pb.go' '*.pb.gw.go' || (echo "generated protobuf code is stale; run make proto-gen" && exit 1)
+	@git diff --exit-code -- '*.pb.go' '*.pb.gw.go' 'docs/static/openapi.swagger.yaml' || (echo "generated protobuf code is stale; run make proto-gen" && exit 1)
 
 mocks:
 	go run go.uber.org/mock/mockgen@v0.6.0 -source=x/registry/types/expected_keepers.go -package testutil -destination x/registry/testutil/expected_keepers_mocks.go

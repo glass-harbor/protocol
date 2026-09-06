@@ -1,0 +1,7 @@
+openapiOptions:
+  file:
+    - file: glassharbor/registry/v1/query.proto
+      option:
+        info:
+          title: Glass Harbor Registry API
+          version: v1

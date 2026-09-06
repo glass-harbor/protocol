@@ -6,6 +6,7 @@ if [ ! -f buf.lock ]; then
   buf dep update 2>/dev/null || buf mod update
 fi
 buf generate --template buf.gen.gogo.yaml
+buf generate --template buf.gen.swagger.yaml --path glassharbor/registry/v1/query.proto
 cd ..
 cp -r github.com/glass-harbor/protocol/* ./
 rm -rf github.com
