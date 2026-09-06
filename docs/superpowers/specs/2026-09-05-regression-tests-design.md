@@ -144,7 +144,7 @@ therefore starts at height 1; its first `create-blocks` yields height 2.
 
 ### 5.2 `templates/default-state.yaml`
 
-Registry params: `treasury_address: "{{ addr treasury }}"`, `voting_period: "5s"`.
+Registry params: `treasury_address: "{{ addr "treasury" }}"`, `voting_period: "5s"`.
 Gov params: `voting_period: "5s"`, `expedited_voting_period: "5s"`, small
 `min_deposit`. Staking: `unbonding_time: "60s"`. Mint: inflation, `inflation_min`,
 `inflation_max`, `inflation_rate_change` and `minter.inflation` all zero, so balance
@@ -158,9 +158,9 @@ before YAML parsing. Functions:
 
 | Function | Result |
 |----------|--------|
-| `{{ addr NAME }}` | bech32 account address of key NAME |
-| `{{ valoper NAME }}` | bech32 validator operator address of key NAME |
-| `{{ module NAME }}` | bech32 address of module account NAME (`gov` is the registry authority) |
+| `{{ addr "NAME" }}` | bech32 account address of key NAME |
+| `{{ valoper "NAME" }}` | bech32 validator operator address of key NAME |
+| `{{ module "NAME" }}` | bech32 address of module account NAME (`gov` is the registry authority) |
 
 ### 5.4 Operations
 
@@ -180,7 +180,7 @@ sequence: 3                 # optional override, for several txs from one signer
 error: "not the owner"      # optional; expected substring of the failure log. Absent = must succeed.
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Smoke App
     description: smoke
     category: utilities
@@ -190,9 +190,9 @@ count: 1                    # default 1
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps/1     # path on the API server, or a full URL
-params: { owner: "{{ addr alice }}" }         # optional query string
+params: { owner: "{{ addr "alice" }}" }         # optional query string
 asserts:                                      # each run as `jq -e`; false/null fails
-  - .app.owner == "{{ addr alice }}"
+  - .app.owner == "{{ addr "alice" }}"
   - .app.verified == false
 ```
 

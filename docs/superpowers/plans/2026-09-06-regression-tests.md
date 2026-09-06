@@ -348,7 +348,7 @@ package regression
 app_state:
   registry:
     params:
-      treasury_address: "{{ addr treasury }}"
+      treasury_address: "{{ addr "treasury" }}"
       voting_period: "5s"
   gov:
     params:
@@ -394,7 +394,7 @@ import (
 
 const chainID = "glassharbor-regtest-1"
 
-// Fixed mnemonics so addresses are stable across runs and usable in YAML via {{ addr NAME }}.
+// Fixed mnemonics so addresses are stable across runs and usable in YAML via {{ addr "NAME" }}.
 var keyMnemonics = []struct{ name, mnemonic string }{
 	{"validator", "gaze bag search west promote avocado fly shield book category mention peanut rose sound jeans cave opera sun axis mansion bomb process toe sport"},
 	{"treasury", "local prepare grunt observe race shy unique metal tiger rocket nest gasp guide mask music ridge melody length expire coin resource globe security link"},
@@ -975,7 +975,7 @@ type: check
 endpoint: /glassharbor/registry/v1/params
 asserts:
   - .params.voting_period == "7s"
-  - .params.treasury_address == "{{ addr treasury }}"
+  - .params.treasury_address == "{{ addr "treasury" }}"
   - .params.create_app_fee.amount == "10000000"
 ---
 type: check
@@ -992,7 +992,7 @@ asserts:
   - .block.header.height == "4"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000000000000"
@@ -1230,7 +1230,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Smoke App
     description: smoke
     category: utilities
@@ -1240,7 +1240,7 @@ type: create-blocks
 type: check
 endpoint: /glassharbor/registry/v1/apps/1
 asserts:
-  - .app.owner == "{{ addr alice }}"
+  - .app.owner == "{{ addr "alice" }}"
   - .app.title == "Smoke App"
   - .verified == false
 ---
@@ -1248,7 +1248,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=smoke.zip"
@@ -1261,7 +1261,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     escrow: { denom: uglass, amount: "1000000" }
@@ -1278,7 +1278,7 @@ asserts:
   - .request.expires_at == "1970-01-01T00:00:09Z"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999984000000"
@@ -1287,7 +1287,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_YES
 ---
@@ -1327,13 +1327,13 @@ asserts:
   - .versions[0].blue_check_request_id == "1"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr treasury }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000001600000"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr validator }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "validator" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "900000900000"
@@ -1392,7 +1392,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: First
     description: the first app
     website: https://example.com
@@ -1405,7 +1405,7 @@ signer: bob
 error: "category not allowed"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr bob }}"
+    creator: "{{ addr "bob" }}"
     title: Bad Category
     description: rejected
     category: nope
@@ -1416,7 +1416,7 @@ type: check
 endpoint: /glassharbor/registry/v1/apps/1
 asserts:
   - .app.id == "1"
-  - .app.owner == "{{ addr alice }}"
+  - .app.owner == "{{ addr "alice" }}"
   - .app.category == "games"
   - .app.tags == ["fun", "retro"]
   - .app.version_count == "0"
@@ -1426,31 +1426,31 @@ asserts:
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps
-params: { owner: "{{ addr alice }}" }
+params: { owner: "{{ addr "alice" }}" }
 asserts:
   - .apps | length == 1
   - .apps[0].app.id == "1"
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps
-params: { owner: "{{ addr bob }}" }
+params: { owner: "{{ addr "bob" }}" }
 asserts:
   - .apps | length == 0
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999990000000"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr treasury }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000001000000"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr bob }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "bob" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000000000000"
@@ -1466,7 +1466,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Before
     description: before
     category: utilities
@@ -1478,7 +1478,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateApp
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     title: After
     description: after
@@ -1490,7 +1490,7 @@ signer: bob
 error: "signer is not the app owner"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateApp
-    owner: "{{ addr bob }}"
+    owner: "{{ addr "bob" }}"
     app_id: "1"
     title: Hijack
     description: nope
@@ -1501,7 +1501,7 @@ signer: alice
 error: "app not found"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateApp
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "42"
     title: Ghost
     description: nope
@@ -1528,7 +1528,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Movable
     description: transfer me
     category: utilities
@@ -1540,34 +1540,34 @@ signer: alice
 error: "invalid field"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgTransferApp
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
-    new_owner: "{{ addr alice }}"
+    new_owner: "{{ addr "alice" }}"
 ---
 type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgTransferApp
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
-    new_owner: "{{ addr bob }}"
+    new_owner: "{{ addr "bob" }}"
 ---
 type: create-blocks
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps/1
 asserts:
-  - .app.owner == "{{ addr bob }}"
+  - .app.owner == "{{ addr "bob" }}"
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps
-params: { owner: "{{ addr alice }}" }
+params: { owner: "{{ addr "alice" }}" }
 asserts:
   - .apps | length == 0
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps
-params: { owner: "{{ addr bob }}" }
+params: { owner: "{{ addr "bob" }}" }
 asserts:
   - .apps | length == 1
 ---
@@ -1576,7 +1576,7 @@ signer: alice
 error: "signer is not the app owner"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateApp
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     title: Still mine?
     description: no
@@ -1586,7 +1586,7 @@ type: tx
 signer: bob
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateApp
-    owner: "{{ addr bob }}"
+    owner: "{{ addr "bob" }}"
     app_id: "1"
     title: Bobs now
     description: yes
@@ -1608,7 +1608,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Old
     description: old
     category: utilities
@@ -1619,7 +1619,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgSetDeprecated
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     deprecated: true
 ---
@@ -1628,7 +1628,7 @@ signer: bob
 error: "signer is not the app owner"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgSetDeprecated
-    owner: "{{ addr bob }}"
+    owner: "{{ addr "bob" }}"
     app_id: "1"
     deprecated: false
 ---
@@ -1644,7 +1644,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgSetDeprecated
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     deprecated: true
 ---
@@ -1654,7 +1654,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgSetDeprecated
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     deprecated: false
 ---
@@ -1675,7 +1675,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Versioned
     description: versions
     category: developer
@@ -1686,7 +1686,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1699,7 +1699,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.1.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1712,7 +1712,7 @@ signer: alice
 error: "version already exists"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1724,7 +1724,7 @@ signer: alice
 error: "invalid semantic version"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: v2
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1756,16 +1756,16 @@ type: check
 endpoint: /glassharbor/registry/v1/apps/1/versions/1.1.0
 asserts:
   - .version.file_size == "2345"
-  - .version.publisher == "{{ addr alice }}"
+  - .version.publisher == "{{ addr "alice" }}"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr treasury }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000002000000"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999980000000"
@@ -1781,12 +1781,12 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Yankable
     description: yank
     category: utilities
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1799,7 +1799,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     escrow: { denom: uglass, amount: "250000" }
@@ -1807,7 +1807,7 @@ msgs:
 type: create-blocks
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999984750000"
@@ -1816,7 +1816,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgYankVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -1836,7 +1836,7 @@ asserts:
   - .request.resolved_height == "4"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999985000000"
@@ -1846,7 +1846,7 @@ signer: alice
 error: "version is yanked"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgYankVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -1855,7 +1855,7 @@ signer: alice
 error: "version not found"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgYankVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 9.9.9
 ---
@@ -1864,7 +1864,7 @@ signer: alice
 error: "version is yanked"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -1887,12 +1887,12 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Unloved
     description: nobody votes
     category: utilities
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
@@ -1905,7 +1905,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     escrow: { denom: uglass, amount: "1000000" }
@@ -1917,7 +1917,7 @@ signer: alice
 error: "an open request already exists for this version"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -1926,7 +1926,7 @@ signer: bob
 error: "signer is not the app owner"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr bob }}"
+    owner: "{{ addr "bob" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -1934,7 +1934,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_NO
 ---
@@ -1969,13 +1969,13 @@ asserts:
   - .version.blue_check == false
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999985000000"
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr treasury }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "1000001500000"
@@ -1985,7 +1985,7 @@ signer: alice
 error: "invalid escrow coin"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     escrow: { denom: stake, amount: "5" }
@@ -1994,7 +1994,7 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2018,19 +2018,19 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Revocable
     description: revoke
     category: utilities
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
     checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     file_size: "1234"
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2041,7 +2041,7 @@ signer: validator
 error: "version has no blue check"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestRevocation
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2049,7 +2049,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_YES
 ---
@@ -2065,7 +2065,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestRevocation
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2076,7 +2076,7 @@ endpoint: /glassharbor/registry/v1/requests/2
 asserts:
   - .request.kind == "REQUEST_KIND_REVOKE"
   - .request.status == "REQUEST_STATUS_OPEN"
-  - .request.requester == "{{ addr validator }}"
+  - .request.requester == "{{ addr "validator" }}"
   - .request.escrow.amount == "0"
   - .request.expires_at == "1970-01-01T00:00:14Z"
 ---
@@ -2085,7 +2085,7 @@ signer: validator
 error: "an open request already exists for this version"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgRequestRevocation
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2093,7 +2093,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "2"
     option: VOTE_OPTION_YES
 ---
@@ -2127,19 +2127,19 @@ type: tx
 signer: alice
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Voted
     description: vote
     category: utilities
   - "@type": /glassharbor.registry.v1.MsgPublishVersion
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
     magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
     checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     file_size: "1234"
   - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
-    owner: "{{ addr alice }}"
+    owner: "{{ addr "alice" }}"
     app_id: "1"
     version: 1.0.0
 ---
@@ -2150,7 +2150,7 @@ signer: validator
 error: "request not found"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "99"
     option: VOTE_OPTION_YES
 ---
@@ -2159,7 +2159,7 @@ signer: validator
 error: "invalid field"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_UNSPECIFIED
 ---
@@ -2168,7 +2168,7 @@ signer: bob
 error: "signer is not a bonded validator"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper bob }}"
+    validator: "{{ valoper "bob" }}"
     request_id: "1"
     option: VOTE_OPTION_YES
 ---
@@ -2176,7 +2176,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_NO
 ---
@@ -2193,7 +2193,7 @@ type: tx
 signer: validator
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_YES
 ---
@@ -2219,14 +2219,14 @@ signer: validator
 error: "request is not open"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgVote
-    validator: "{{ valoper validator }}"
+    validator: "{{ valoper "validator" }}"
     request_id: "1"
     option: VOTE_OPTION_YES
 ---
 type: create-blocks
 ```
 
-Heights (node starts at 1): create, publish and request at 2 (expires 7); rejects and the NO vote at 3; the YES re-vote at 4; blocks 5..7 resolve at 7; the vote on the closed request is rejected at 8. `{{ valoper bob }}` is bob's account bytes with the valoper prefix; bob signs because the signer field is that valoper address and its bytes are bob's key. If the `VOTE_OPTION_UNSPECIFIED` case is rejected by `ValidateBasic` with a different string, adjust the `error:`.
+Heights (node starts at 1): create, publish and request at 2 (expires 7); rejects and the NO vote at 3; the YES re-vote at 4; blocks 5..7 resolve at 7; the vote on the closed request is rejected at 8. `{{ valoper "bob" }}` is bob's account bytes with the valoper prefix; bob signs because the signer field is that valoper address and its bytes are bob's key. If the `VOTE_OPTION_UNSPECIFIED` case is rejected by `ValidateBasic` with a different string, adjust the `error:`.
 
 - [ ] **Step 10: `params/update.yaml`**
 
@@ -2237,13 +2237,13 @@ signer: alice
 error: "unauthorized"
 msgs:
   - "@type": /glassharbor.registry.v1.MsgUpdateParams
-    authority: "{{ addr alice }}"
+    authority: "{{ addr "alice" }}"
     params:
       create_app_fee: { denom: uglass, amount: "1" }
       publish_version_fee: { denom: uglass, amount: "5000000" }
       upload_fee_treasury_rate: "0.100000000000000000"
       bluecheck_treasury_rate: "0.100000000000000000"
-      treasury_address: "{{ addr treasury }}"
+      treasury_address: "{{ addr "treasury" }}"
       voting_period: "5s"
       categories: [wallet, exchange, social, media, games, productivity, developer, utilities, other]
       max_title_bytes: 64
@@ -2263,13 +2263,13 @@ msgs:
   - "@type": /cosmos.gov.v1.MsgSubmitProposal
     messages:
       - "@type": /glassharbor.registry.v1.MsgUpdateParams
-        authority: "{{ module gov }}"
+        authority: "{{ module "gov" }}"
         params:
           create_app_fee: { denom: uglass, amount: "1" }
           publish_version_fee: { denom: uglass, amount: "5000000" }
           upload_fee_treasury_rate: "0.100000000000000000"
           bluecheck_treasury_rate: "0.100000000000000000"
-          treasury_address: "{{ addr treasury }}"
+          treasury_address: "{{ addr "treasury" }}"
           voting_period: "5s"
           categories: [wallet, exchange, social, media, games, productivity, developer, utilities, other]
           max_title_bytes: 64
@@ -2283,7 +2283,7 @@ msgs:
           max_source_url_bytes: 256
           max_version_bytes: 64
     initial_deposit: [{ denom: uglass, amount: "10000000" }]
-    proposer: "{{ addr alice }}"
+    proposer: "{{ addr "alice" }}"
     metadata: regtest
     title: Lower the create fee
     summary: create_app_fee to 1uglass
@@ -2300,7 +2300,7 @@ signer: validator
 msgs:
   - "@type": /cosmos.gov.v1.MsgVote
     proposal_id: "1"
-    voter: "{{ addr validator }}"
+    voter: "{{ addr "validator" }}"
     option: VOTE_OPTION_YES
 ---
 type: create-blocks
@@ -2321,7 +2321,7 @@ type: tx
 signer: bob
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr bob }}"
+    creator: "{{ addr "bob" }}"
     title: Cheap
     description: one uglass
     category: other
@@ -2329,7 +2329,7 @@ msgs:
 type: create-blocks
 ---
 type: check
-endpoint: /cosmos/bank/v1beta1/balances/{{ addr bob }}/by_denom
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "bob" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999999999999"
@@ -2404,8 +2404,8 @@ before the first block), so a suite starts at height 1 and its first `create-blo
 ## Keys
 
 `validator`, `treasury`, `alice`, `bob`, `carol`, each with `1000000000000uglass` at genesis
-(the validator self-delegates `100000000000uglass`). Templates: `{{ addr NAME }}`,
-`{{ valoper NAME }}`, `{{ module gov }}`. `templates/default-state.yaml` is merged into every
+(the validator self-delegates `100000000000uglass`). Templates: `{{ addr "NAME" }}`,
+`{{ valoper "NAME" }}`, `{{ module "gov" }}`. `templates/default-state.yaml` is merged into every
 genesis first (treasury address, 5s registry voting period, 10s gov voting period, zero mint
 inflation, no gas fees).
 
@@ -2422,7 +2422,7 @@ sequence: 3                # optional, for several txs from one signer in one bl
 error: "app not found"     # optional: expected substring of the failure; absent = must succeed
 msgs:
   - "@type": /glassharbor.registry.v1.MsgCreateApp
-    creator: "{{ addr alice }}"
+    creator: "{{ addr "alice" }}"
     title: Hello
     description: world
     category: utilities
@@ -2432,9 +2432,9 @@ count: 1                   # the first one with the expected outcome, or the sui
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps/1     # REST path (or full URL)
-params: { owner: "{{ addr alice }}" }         # optional query string
+params: { owner: "{{ addr "alice" }}" }         # optional query string
 asserts:                                      # each is `jq -e`
-  - .app.owner == "{{ addr alice }}"
+  - .app.owner == "{{ addr "alice" }}"
 ```
 
 Proto JSON rules: 64-bit integers are strings (`app_id: "1"`), enums are names
