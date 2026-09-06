@@ -15,7 +15,7 @@ ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=glassharbor \
 	-X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT)
 BUILD_FLAGS := -ldflags '$(ldflags)' -trimpath
 
-.PHONY: all build build-regtest install test test-unit test-integration lint proto-gen proto-lint proto-check mocks localnet-start localnet-reset docker-build
+.PHONY: all build build-regtest install test test-unit test-integration test-regression lint proto-gen proto-lint proto-check mocks localnet-start localnet-reset docker-build
 
 all: build
 
@@ -37,6 +37,9 @@ test-unit:
 
 test-integration:
 	go test -race -count=1 ./tests/...
+
+test-regression: build-regtest
+	cd tests/regression && go test -tags regression -count=1 -timeout 15m -parallel 4 ./...
 
 lint:
 	golangci-lint run ./...

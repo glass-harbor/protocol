@@ -1,0 +1,34 @@
+# Proves the state overlay reaches genesis and that blocks only happen on request.
+# The runner makes block 1 during startup, so three more blocks give height 4.
+type: state
+genesis:
+  app_state:
+    registry:
+      params:
+        voting_period: "7s"
+---
+type: check
+endpoint: /glassharbor/registry/v1/params
+asserts:
+  - .params.voting_period == "7s"
+  - .params.treasury_address == "{{ addr "treasury" }}"
+  - .params.create_app_fee.amount == "10000000"
+---
+type: check
+endpoint: /cosmos/mint/v1beta1/inflation
+asserts:
+  - .inflation | tonumber == 0
+---
+type: create-blocks
+count: 3
+---
+type: check
+endpoint: /cosmos/base/tendermint/v1beta1/blocks/latest
+asserts:
+  - .block.header.height == "4"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000000000000"
