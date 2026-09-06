@@ -31,6 +31,7 @@ init() {
   "$BIN" genesis validate --home "$HOME_DIR"
   "$BIN" config set app minimum-gas-prices 0.001uglass --home "$HOME_DIR" --skip-validate
   "$BIN" config set app api.enable true --home "$HOME_DIR" --skip-validate
+  "$BIN" config set app api.swagger true --home "$HOME_DIR" --skip-validate
   "$BIN" config set config consensus.timeout_commit 1s --home "$HOME_DIR" --skip-validate
   echo "localnet initialised at $HOME_DIR (treasury=$treasury)"
 }

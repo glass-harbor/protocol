@@ -26,6 +26,8 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
+curl -sf localhost:1317/swagger/swagger.yaml | grep -q '/glassharbor/registry/v1/apps' || { echo "swagger spec missing registry routes" >&2; exit 1; }
+
 t0=$(bal treasury); v0=$(bal validator)
 
 tx create-app --title "Smoke App" --description "smoke" --category utilities --from alice
