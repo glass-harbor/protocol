@@ -1,0 +1,101 @@
+# MsgPublishVersion: seq/latest bookkeeping, fee split, duplicate and invalid semver rejected.
+# Heights (node starts at 1): create at 2; 1.0.0 at 3; 1.1.0 and the two rejects at 4.
+# §6.7 lists versions newest-first (VersionsBySeq descending), so .versions[0] is 1.1.0.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Versioned
+    description: versions
+    category: developer
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.1.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    file_size: "2345"
+    min_jetty_version: 0.3.0
+---
+type: tx
+signer: alice
+error: "version already exists"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+---
+type: tx
+signer: alice
+error: "invalid semantic version"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: v2
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.version_count == "2"
+  - .app.latest_version == "1.1.0"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1/versions
+asserts:
+  - .versions | length == 2
+  - .versions[0].version == "1.1.0"
+  - .versions[0].seq == "2"
+  - .versions[0].min_jetty_version == "0.3.0"
+  - .versions[0].yanked == false
+  - .versions[1].version == "1.0.0"
+  - .versions[1].seq == "1"
+  - .versions[1].publish_height == "3"
+  - .versions[1].publish_time == "1970-01-01T00:00:03Z"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1/versions/1.1.0
+asserts:
+  - .version.file_size == "2345"
+  - .version.publisher == "{{ addr "alice" }}"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000002000000"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999980000000"

@@ -1,0 +1,77 @@
+# MsgTransferApp: owner index moves; new owner can update, old owner cannot; self-transfer rejected.
+# Heights (node starts at 1): create at 2; self-transfer reject and the transfer at 3 (same signer,
+# so ordered); the old-owner reject and the new-owner update at 4 (independent, so order is free).
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Movable
+    description: transfer me
+    category: utilities
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+error: "invalid field"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgTransferApp
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    new_owner: "{{ addr "alice" }}"
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgTransferApp
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    new_owner: "{{ addr "bob" }}"
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.owner == "{{ addr "bob" }}"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps
+params: { owner: "{{ addr "alice" }}" }
+asserts:
+  - .apps == []
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps
+params: { owner: "{{ addr "bob" }}" }
+asserts:
+  - .apps | length == 1
+---
+type: tx
+signer: alice
+error: "signer is not the app owner"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateApp
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    title: Still mine?
+    description: no
+    category: utilities
+---
+type: tx
+signer: bob
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateApp
+    owner: "{{ addr "bob" }}"
+    app_id: "1"
+    title: Bobs now
+    description: yes
+    category: utilities
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.title == "Bobs now"

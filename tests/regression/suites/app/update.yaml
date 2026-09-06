@@ -1,0 +1,58 @@
+# MsgUpdateApp: full replacement by owner; non-owner and unknown app rejected in check order.
+# Heights (node starts at 1): create at 2; the update and the two rejects at 3.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Before
+    description: before
+    category: utilities
+    tags: [old]
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateApp
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    title: After
+    description: after
+    website: https://after.example
+    category: social
+---
+type: tx
+signer: bob
+error: "signer is not the app owner"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateApp
+    owner: "{{ addr "bob" }}"
+    app_id: "1"
+    title: Hijack
+    description: nope
+    category: social
+---
+type: tx
+signer: alice
+error: "app not found"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateApp
+    owner: "{{ addr "alice" }}"
+    app_id: "42"
+    title: Ghost
+    description: nope
+    category: social
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.title == "After"
+  - .app.description == "after"
+  - .app.website == "https://after.example"
+  - .app.category == "social"
+  - (.app.tags // []) == []
+  - .app.updated_height == "3"

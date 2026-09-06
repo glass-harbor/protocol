@@ -1,0 +1,23 @@
+# Genesis overlay merged into every suite before its own `state` ops (jq recursive merge).
+# Registry and gov voting periods are block counts because regtest block time is unix(height).
+# Mint inflation is zero so balance assertions measure registry fee routing only.
+app_state:
+  registry:
+    params:
+      treasury_address: "{{ addr "treasury" }}"
+      voting_period: "5s"
+  gov:
+    params:
+      voting_period: "10s"
+      expedited_voting_period: "5s"
+      min_deposit: [{ denom: uglass, amount: "10000000" }]
+  staking:
+    params:
+      unbonding_time: "60s"
+  mint:
+    minter:
+      inflation: "0.000000000000000000"
+    params:
+      inflation_rate_change: "0.000000000000000000"
+      inflation_max: "0.000000000000000000"
+      inflation_min: "0.000000000000000000"

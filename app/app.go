@@ -426,11 +426,6 @@ func (app *App) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
 	return app.ModuleManager.BeginBlock(ctx)
 }
 
-// EndBlocker runs module end-blockers.
-func (app *App) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
-	return app.ModuleManager.EndBlock(ctx)
-}
-
 // Configurator returns the module configurator.
 func (app *App) Configurator() module.Configurator { return app.configurator }
 

@@ -1,0 +1,129 @@
+# MsgRequestBlueCheck: no yes votes -> FAILED at expiry, escrow refunded (§6.6); duplicate open
+# request rejected. Heights (node starts at 1): create+publish at 2; the request at 3, so
+# expires_at = 3s + voting_period(5s) = 8s; the two rejects and the NO vote at 4; four more blocks
+# reach 8, where the EndBlocker resolves it; the escrow reject and request 2 at 9. The wrong-denom
+# escrow case runs only after request 1 is closed because §6.5 checks ErrRequestExists before the
+# escrow rule; {stake, 5} is a valid SDK coin, so the handler yields ErrInvalidEscrow.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Unloved
+    description: nobody votes
+    category: utilities
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    escrow: { denom: uglass, amount: "1000000" }
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+error: "an open request already exists for this version"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: tx
+signer: bob
+error: "signer is not the app owner"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "bob" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: tx
+signer: validator
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgVote
+    validator: "{{ valoper "validator" }}"
+    request_id: "1"
+    option: VOTE_OPTION_NO
+---
+type: create-blocks
+---
+# §6.7: REST enum query params take the numeric enum value; 1 is REQUEST_STATUS_OPEN.
+type: check
+endpoint: /glassharbor/registry/v1/requests
+params: { status: "1" }
+asserts:
+  - .requests | length == 1
+  - .requests[0].expires_at == "1970-01-01T00:00:08Z"
+---
+type: create-blocks
+count: 4
+---
+type: check
+endpoint: /glassharbor/registry/v1/requests/1
+asserts:
+  - .request.status == "REQUEST_STATUS_FAILED"
+  - .request.resolved_height == "8"
+  - (.request.no_power | tonumber) > 0
+  - .request.yes_power == "0"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .verified == false
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1/versions/1.0.0
+asserts:
+  - .version.blue_check == false
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999985000000"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000001500000"
+---
+type: tx
+signer: alice
+error: "invalid escrow coin"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    escrow: { denom: stake, amount: "5" }
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/requests/2
+asserts:
+  - .request.status == "REQUEST_STATUS_OPEN"
+  - .request.escrow.amount == "0"

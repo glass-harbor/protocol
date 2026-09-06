@@ -1,0 +1,114 @@
+# MsgUpdateParams: only the gov authority may call it; a gov proposal wrapping it changes params.
+# The params block must be complete because the field is non-nullable and Validate() runs on it;
+# values are the genesis defaults from x/registry/types/params.go with the regtest voting_period.
+# Heights (node starts at 1): the unauthorized attempt and the proposal at 2, so the gov voting
+# period (10s, default-state) ends at 12s; the gov vote at 3; eleven more blocks reach 14, well
+# past the end time either way. With create_app_fee at 1 and a 10% treasury rate,
+# T = floor(0.1) = 0, so the whole 1uglass goes to fee_collector and bob pays exactly 1.
+type: tx
+signer: alice
+error: "unauthorized"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgUpdateParams
+    authority: "{{ addr "alice" }}"
+    params:
+      create_app_fee: { denom: uglass, amount: "1" }
+      publish_version_fee: { denom: uglass, amount: "5000000" }
+      upload_fee_treasury_rate: "0.100000000000000000"
+      bluecheck_treasury_rate: "0.100000000000000000"
+      treasury_address: "{{ addr "treasury" }}"
+      voting_period: "5s"
+      categories: [wallet, exchange, social, media, games, productivity, developer, utilities, other]
+      max_title_bytes: 64
+      max_description_bytes: 4096
+      max_tags: 10
+      max_tag_bytes: 32
+      max_icon_bytes: 65536
+      max_magnet_bytes: 2048
+      max_min_jetty_version_bytes: 32
+      max_website_bytes: 256
+      max_source_url_bytes: 256
+      max_version_bytes: 64
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /cosmos.gov.v1.MsgSubmitProposal
+    messages:
+      - "@type": /glassharbor.registry.v1.MsgUpdateParams
+        authority: "{{ module "gov" }}"
+        params:
+          create_app_fee: { denom: uglass, amount: "1" }
+          publish_version_fee: { denom: uglass, amount: "5000000" }
+          upload_fee_treasury_rate: "0.100000000000000000"
+          bluecheck_treasury_rate: "0.100000000000000000"
+          treasury_address: "{{ addr "treasury" }}"
+          voting_period: "5s"
+          categories: [wallet, exchange, social, media, games, productivity, developer, utilities, other]
+          max_title_bytes: 64
+          max_description_bytes: 4096
+          max_tags: 10
+          max_tag_bytes: 32
+          max_icon_bytes: 65536
+          max_magnet_bytes: 2048
+          max_min_jetty_version_bytes: 32
+          max_website_bytes: 256
+          max_source_url_bytes: 256
+          max_version_bytes: 64
+    initial_deposit: [{ denom: uglass, amount: "10000000" }]
+    proposer: "{{ addr "alice" }}"
+    metadata: regtest
+    title: Lower the create fee
+    summary: create_app_fee to 1uglass
+---
+type: create-blocks
+---
+type: check
+endpoint: /cosmos/gov/v1/proposals/1
+asserts:
+  - .proposal.status == "PROPOSAL_STATUS_VOTING_PERIOD"
+---
+type: tx
+signer: validator
+msgs:
+  - "@type": /cosmos.gov.v1.MsgVote
+    proposal_id: "1"
+    voter: "{{ addr "validator" }}"
+    option: VOTE_OPTION_YES
+---
+type: create-blocks
+count: 11
+---
+type: check
+endpoint: /cosmos/gov/v1/proposals/1
+asserts:
+  - .proposal.status == "PROPOSAL_STATUS_PASSED"
+---
+type: check
+endpoint: /glassharbor/registry/v1/params
+asserts:
+  - .params.create_app_fee.amount == "1"
+  - .params.publish_version_fee.amount == "5000000"
+---
+type: tx
+signer: bob
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "bob" }}"
+    title: Cheap
+    description: one uglass
+    category: other
+---
+type: create-blocks
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "bob" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999999999999"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000000000000"

@@ -1,0 +1,64 @@
+# MsgSetDeprecated: toggle both ways, idempotent, owner only.
+# Heights (node starts at 1): create at 2; deprecate=true and the non-owner reject at 3;
+# the idempotent deprecate=true at 4; deprecate=false at 5.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Old
+    description: old
+    category: utilities
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgSetDeprecated
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    deprecated: true
+---
+type: tx
+signer: bob
+error: "signer is not the app owner"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgSetDeprecated
+    owner: "{{ addr "bob" }}"
+    app_id: "1"
+    deprecated: false
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.deprecated == true
+  - .app.updated_height == "3"
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgSetDeprecated
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    deprecated: true
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgSetDeprecated
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    deprecated: false
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.deprecated == false
+  - .app.updated_height == "5"
