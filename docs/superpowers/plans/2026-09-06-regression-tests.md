@@ -2117,7 +2117,7 @@ asserts:
   - .version.blue_check == false
 ```
 
-Heights (node starts at 1): create, publish and blue-check request at 2 (expires 7); the rejected revocation and the YES vote at 3 (same signer, so ordered); blocks 4..8 resolve request 1 at 7; revocation request at 9 (expires 14); duplicate rejected and YES vote at 10; blocks 11..14 resolve request 2 at 14. The rejected revocation is not in block 1 because tx order across signers is random and the version must exist first. The requester of a revocation is the account address derived from the valoper bytes, which for a self-delegated validator is its own account.
+Heights (node starts at 1): create, publish and blue-check request at 2 (expires 7); the rejected revocation and the YES vote at 3 (same signer, so ordered); blocks 4..8 resolve request 1 at 7; revocation request at 9 (expires 14); duplicate rejected and YES vote at 10; blocks 11..14 resolve request 2 at 14. The rejected revocation is not in block 2 because tx order across signers is random and the version must exist first. The requester of a revocation is the account address derived from the valoper bytes, which for a self-delegated validator is its own account.
 
 - [ ] **Step 9: `request/vote.yaml`**
 
