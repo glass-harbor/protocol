@@ -52,19 +52,24 @@ which inserts into an SDK mempool that the default `PrepareProposal` handler rea
 
 | File | Tag | Content |
 |------|-----|---------|
-| `app/app_default.go` | `!regtest` | `EndBlocker` (moved from `app.go`), `regtestBaseAppOptions = nil` |
-| `app/app_regtest.go` | `regtest` | gate server, ABCI overrides, `EndBlocker` with invariants, `regtestBaseAppOptions` |
-| `app/app.go` | none | appends `regtestBaseAppOptions` to the BaseApp options in `New` |
+| `app/app_default.go` | `!regtest` | `EndBlocker` (moved from `app.go`) |
+| `app/app_regtest.go` | `regtest` | gate server, ABCI overrides (`Info`, `PrepareProposal`, `ProcessProposal`, `FinalizeBlock`, `Commit`), `EndBlocker` with invariants |
+| `app/app.go` | none | loses the `EndBlocker` method, nothing else |
 
 Nothing else in the shipped binary changes. `make build` never uses the tag.
 
 ### 4.2 Gate server
 
 `init()` in `app_regtest.go` starts an HTTP server on `HARBORD_REGTEST_ADDR`
-(e.g. `127.0.0.1:PORT`, required; fatal if unset).
+(e.g. `127.0.0.1:PORT`). When the variable is unset the gate is disabled and the binary
+behaves like a normal node apart from the time override and invariant checks, which is
+what the runner's `init`/`keys`/`genesis` invocations and the CLI's throwaway app in
+`NewRootCmd` need. The serving app binds itself to the gate in its `Info` override, the
+first ABCI call CometBFT makes.
 
 | Route | Body | Behaviour |
 |-------|------|-----------|
+| `GET /ping` | none | 200 once an app has answered `Info`, else 503 (readiness) |
 | `POST /tx` | raw signed tx bytes | calls `BaseApp.CheckTx` on the app; responds JSON `{"code":N,"log":"...","hash":"HEX"}` |
 | `GET /newBlock` | none | sends on `begin` (releases one gated `PrepareProposal`), waits on `end` (sent by the `Commit` override after `BaseApp.Commit`), responds with the committed height as text |
 
@@ -86,20 +91,27 @@ request made at height H resolves in the EndBlocker of height H+5. CometBFT's ow
 time stays wall-clock; only the app sees the override, which keeps app state and app hash
 deterministic.
 
-### 4.4 BaseApp options
+### 4.4 SDK mempool
 
-`regtestBaseAppOptions = []func(*baseapp.BaseApp){ baseapp.SetMempool(mempool.NewSenderNonceMempool()) }`.
-`baseapp.NewBaseApp` applies options before it builds the default proposal handlers
-(`baseapp.go` ~195-205), so the default `PrepareProposal` reaps from this mempool and
-`FinalizeBlock` removes executed txs (`baseapp.go` ~919-925).
+The runner starts the node with `--mempool.max-txs 5000`. `server.DefaultBaseappOptions`
+(`server/util.go` ~549) turns any non-negative value into
+`baseapp.SetMempool(mempool.NewSenderNonceMempool(...))`, and `baseapp.NewBaseApp`
+applies options before it builds the default proposal handlers (`baseapp.go` ~195-205),
+so the default `PrepareProposal` reaps from this mempool and `FinalizeBlock` removes
+executed txs (`baseapp.go` ~919-925). No app code is needed for this. Sender order within
+a block is randomised by that mempool; order within one sender is by nonce.
 
 ### 4.5 Node configuration (set by the runner)
 
-`consensus.skip_timeout_commit = true`, `consensus.create_empty_blocks = true` (default;
-the next `PrepareProposal` is requested immediately after commit and gates), API server
-enabled, `minimum-gas-prices = 0uglass`, pprof and Prometheus off. Ports for RPC, P2P,
-gRPC and API are passed as `start` flags (`--rpc.laddr`, `--p2p.laddr`, `--grpc.address`,
-`--api.address`, `--rpc.pprof_laddr`).
+`consensus.skip_timeout_commit = true` (the next `PrepareProposal` is requested
+immediately after commit and gates), `consensus.timeout_propose = 1h` (the proposer
+timeout is armed before `PrepareProposal` and must never fire while a block is parked;
+if it did, CometBFT would prevote nil and start a new round, calling `PrepareProposal`
+again and hanging the pending `/newBlock`), `create_empty_blocks` left at its default
+`true`, API server enabled, `minimum-gas-prices = 0uglass`, pprof off. The two consensus
+values are written into `config.toml` of the base home; everything else is a `start`
+flag (`--rpc.laddr`, `--p2p.laddr`, `--grpc.address`, `--api.address`,
+`--rpc.pprof_laddr=`, `--api.enable=true`, `--mempool.max-txs`, `--minimum-gas-prices`).
 
 ## 5. Runner: `tests/regression`
 
@@ -145,6 +157,7 @@ before YAML parsing. Functions:
 |----------|--------|
 | `{{ addr NAME }}` | bech32 account address of key NAME |
 | `{{ valoper NAME }}` | bech32 validator operator address of key NAME |
+| `{{ module NAME }}` | bech32 address of module account NAME (`gov` is the registry authority) |
 
 ### 5.4 Operations
 
@@ -218,6 +231,7 @@ error path.
 
 | File | Covers |
 |------|--------|
+| `core/genesis.yaml` | harness self-check: a `state` overlay reaches params, mint inflation is zero, three `create-blocks` give height 3, genesis balances |
 | `smoke/blue-check.yaml` | port of `scripts/smoke.sh` without gas fees: create, publish, request, vote yes, expiry, `verified`, request `PASSED`, version `blue_check`, treasury and validator balance deltas |
 | `app/create.yaml` | `MsgCreateApp`: fields, owner index query, create fee split, invalid category rejected |
 | `app/update.yaml` | `MsgUpdateApp`: owner update, non-owner rejected, unknown app rejected |
