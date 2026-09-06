@@ -38,8 +38,6 @@ var (
 )
 
 // pendingTx is a tx accepted by CheckTx whose block result has not been verified yet.
-//
-//nolint:unused // constructed and read by Task 3's tx() and verifyPending()
 type pendingTx struct {
 	hash   string
 	errSub string
@@ -47,17 +45,16 @@ type pendingTx struct {
 }
 
 // signer tracks account number and next sequence for one key.
-type signer struct{ accNum, seq uint64 } //nolint:unused // accNum is populated by Task 3's tx()
+type signer struct{ accNum, seq uint64 }
 
 type node struct {
-	t      *testing.T
-	path   string // suite file, for messages
-	home   string
-	gate   string // http://127.0.0.1:PORT
-	api    string // http://127.0.0.1:PORT
-	rpcURL string
-	rpc    *rpchttp.HTTP
-	//nolint:unused // appended to and drained by Task 3's tx() and verifyPending()
+	t       *testing.T
+	path    string // suite file, for messages
+	home    string
+	gate    string // http://127.0.0.1:PORT
+	api     string // http://127.0.0.1:PORT
+	rpcURL  string
+	rpc     *rpchttp.HTTP
 	pending []pendingTx
 	signers map[string]*signer
 }
@@ -238,7 +235,7 @@ func (n *node) fatalf(o op, format string, args ...any) {
 	n.t.Fatalf("%s:%d (%s): %s", n.path, o.line, o.Type, fmt.Sprintf(format, args...))
 }
 
-func (n *node) ctx() context.Context { //nolint:unused // called by Task 3's tx() to submit signed txs
+func (n *node) ctx() context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	n.t.Cleanup(cancel)
 	return ctx
