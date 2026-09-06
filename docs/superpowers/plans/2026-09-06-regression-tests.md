@@ -541,15 +541,28 @@ func startNode(t *testing.T, path string, overlays [][]byte) *node {
 		}
 	})
 
+	// Wait for the gate, then produce the genesis block ourselves: the SDK refuses queries
+	// ("is not ready; please wait for first block") until block 1 is committed. Every suite
+	// therefore starts at height 1 and its first create-blocks yields height 2.
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		if code, _ := n.httpGet(n.gate + "/ping"); code == http.StatusOK {
-			if code, _ := n.httpGet(n.api + "/cosmos/auth/v1beta1/params"); code == http.StatusOK {
-				return n
-			}
+			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("%s: node did not become ready in 60s", path)
+			t.Fatalf("%s: regtest gate did not answer /ping in 60s", path)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if h := n.newBlock(); h != 1 {
+		t.Fatalf("%s: first /newBlock returned height %d, want 1", path, h)
+	}
+	for {
+		if code, _ := n.httpGet(n.api + "/cosmos/auth/v1beta1/params"); code == http.StatusOK {
+			return n
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s: REST API did not become ready in 60s", path)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -703,8 +716,21 @@ func parseOps(t *testing.T, path string) []op {
 			t.Fatalf("%s:%d: yaml: %v", path, doc.Line, err)
 		}
 		o.line = doc.Line
+		// yaml.v3 ignores unknown keys, so a misspelled field would silently produce a no-op.
 		switch o.Type {
-		case "state", "tx", "create-blocks", "check":
+		case "state":
+			if o.Genesis == nil {
+				t.Fatalf("%s:%d: state op needs `genesis`", path, o.line)
+			}
+		case "tx":
+			if o.Signer == "" || len(o.Msgs) == 0 {
+				t.Fatalf("%s:%d: tx op needs `signer` and `msgs`", path, o.line)
+			}
+		case "create-blocks":
+		case "check":
+			if o.Endpoint == "" || len(o.Asserts) == 0 {
+				t.Fatalf("%s:%d: check op needs `endpoint` and `asserts`", path, o.line)
+			}
 		default:
 			t.Fatalf("%s:%d: unknown op type %q", path, o.line, o.Type)
 		}
@@ -867,7 +893,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(tmp)
 
 	// Encoding config the same way cmd/harbord/cmd/root.go gets it.
 	tempApp := app.NewApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.NewAppOptionsWithFlagHome(filepath.Join(tmp, "encoding")))
@@ -890,7 +915,9 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	os.Exit(m.Run())
+	code := m.Run() // os.Exit skips deferred calls, so clean up explicitly
+	_ = os.RemoveAll(tmp)
+	os.Exit(code)
 }
 
 func TestRegression(t *testing.T) {
@@ -936,6 +963,7 @@ Create `tests/regression/suites/core/genesis.yaml`:
 
 ```yaml
 # Proves the state overlay reaches genesis and that blocks only happen on request.
+# The runner makes block 1 during startup, so three more blocks give height 4.
 type: state
 genesis:
   app_state:
@@ -961,7 +989,7 @@ count: 3
 type: check
 endpoint: /cosmos/base/tendermint/v1beta1/blocks/latest
 asserts:
-  - .block.header.height == "3"
+  - .block.header.height == "4"
 ---
 type: check
 endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
@@ -985,7 +1013,7 @@ Run: `make test-regression`
 Expected: `ok  github.com/glass-harbor/protocol/tests/regression` with `TestRegression/core/genesis` passing. Debug aids if not:
 - Rerun one suite with node logs streamed, from the package directory (the runner needs `suites/` in the cwd, which `go test` sets to the package dir): `cd tests/regression && DEBUG=1 go test -tags regression -count=1 -run 'TestRegression/core/genesis' -v ./`
 - Readiness timeout: the log tail shows a flag or config rejection.
-- `/blocks/latest` failing: the SDK's tendermint REST service calls CometBFT RPC `Block`, which reads the block store and is not held by the gate. If it still errors, assert the height through `/cosmos/base/tendermint/v1beta1/blocks/3` instead and report the `/blocks/latest` failure in the commit body.
+- `/blocks/latest` failing: the SDK's tendermint REST service calls CometBFT RPC `Block`, which reads the block store and is not held by the gate. If it still errors, assert the height through `/cosmos/base/tendermint/v1beta1/blocks/4` instead and report the `/blocks/latest` failure in the commit body.
 
 - [ ] **Step 9: Confirm the untagged build and existing tests are unaffected**
 
@@ -1195,8 +1223,9 @@ Expected: clean.
 `tests/regression/suites/smoke/blue-check.yaml` (port of `scripts/smoke.sh`, SPEC §9, without gas fees; fee numbers from §7 with default params: create fee 10000000 of which 10% = 1000000 to treasury, publish fee 5000000 → 500000, escrow 1000000 → 100000 treasury and 900000 to the yes voter):
 
 ```yaml
-# scripts/smoke.sh as a regression suite. Heights: create=1 publish=2 request=3 vote=4,
-# expires_at = submit_time(3s) + voting_period(5s) = 8s, so the request resolves at height 8.
+# scripts/smoke.sh as a regression suite. The node starts at height 1. Heights: create=2
+# publish=3 request=4 vote=5; expires_at = submit_time(4s) + voting_period(5s) = 9s, so the
+# request resolves in the EndBlocker of height 9.
 type: tx
 signer: alice
 msgs:
@@ -1245,8 +1274,8 @@ asserts:
   - .request.status == "REQUEST_STATUS_OPEN"
   - .request.kind == "REQUEST_KIND_VERIFY"
   - .request.escrow.amount == "1000000"
-  - .request.submit_height == "3"
-  - .request.expires_at == "1970-01-01T00:00:08Z"
+  - .request.submit_height == "4"
+  - .request.expires_at == "1970-01-01T00:00:09Z"
 ---
 type: check
 endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
@@ -1284,7 +1313,7 @@ type: check
 endpoint: /glassharbor/registry/v1/requests/1
 asserts:
   - .request.status == "REQUEST_STATUS_PASSED"
-  - .request.resolved_height == "8"
+  - .request.resolved_height == "9"
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps/1
@@ -1315,7 +1344,7 @@ Notes for the implementer: proto JSON encodes `uint64` and `int64` as strings, s
 - [ ] **Step 4: Run the smoke suite**
 
 Run: `make build-regtest && cd tests/regression && go test -tags regression -count=1 -run 'TestRegression/smoke' -v ./`
-Expected: PASS. If the request is still OPEN at height 8 but PASSED at 9, the EndBlocker range is exclusive contrary to the collections reading; in that case fix the suite comment and counts (do not change keeper code in this plan; note it in the commit body for a `spec:` follow-up).
+Expected: PASS. If the request is still OPEN at height 9 but PASSED at 10, the EndBlocker range is exclusive contrary to the collections reading; in that case fix the suite comment and counts (do not change keeper code in this plan; note it in the commit body for a `spec:` follow-up).
 
 - [ ] **Step 5: Prove a failing tx is caught**
 
@@ -1392,7 +1421,7 @@ asserts:
   - .app.tags == ["fun", "retro"]
   - .app.version_count == "0"
   - .app.latest_version == ""
-  - .app.created_height == "1"
+  - .app.created_height == "2"
   - .app.deprecated == false
 ---
 type: check
@@ -1488,7 +1517,7 @@ asserts:
   - .app.website == "https://after.example"
   - .app.category == "social"
   - (.app.tags // []) == []
-  - .app.updated_height == "2"
+  - .app.updated_height == "3"
 ```
 
 - [ ] **Step 3: `app/transfer.yaml`**
@@ -1609,7 +1638,7 @@ type: check
 endpoint: /glassharbor/registry/v1/apps/1
 asserts:
   - .app.deprecated == true
-  - .app.updated_height == "2"
+  - .app.updated_height == "3"
 ---
 type: tx
 signer: alice
@@ -1635,7 +1664,7 @@ type: check
 endpoint: /glassharbor/registry/v1/apps/1
 asserts:
   - .app.deprecated == false
-  - .app.updated_height == "4"
+  - .app.updated_height == "5"
 ```
 
 - [ ] **Step 5: `version/publish.yaml`**
@@ -1716,8 +1745,8 @@ asserts:
   - .versions | length == 2
   - .versions[0].version == "1.0.0"
   - .versions[0].seq == "1"
-  - .versions[0].publish_height == "2"
-  - .versions[0].publish_time == "1970-01-01T00:00:02Z"
+  - .versions[0].publish_height == "3"
+  - .versions[0].publish_time == "1970-01-01T00:00:03Z"
   - .versions[1].version == "1.1.0"
   - .versions[1].seq == "2"
   - .versions[1].min_jetty_version == "0.3.0"
@@ -1804,7 +1833,7 @@ type: check
 endpoint: /glassharbor/registry/v1/requests/1
 asserts:
   - .request.status == "REQUEST_STATUS_CANCELLED"
-  - .request.resolved_height == "3"
+  - .request.resolved_height == "4"
 ---
 type: check
 endpoint: /cosmos/bank/v1beta1/balances/{{ addr alice }}/by_denom
@@ -1916,7 +1945,7 @@ endpoint: /glassharbor/registry/v1/requests
 params: { status: REQUEST_STATUS_OPEN }
 asserts:
   - .requests | length == 1
-  - .requests[0].expires_at == "1970-01-01T00:00:07Z"
+  - .requests[0].expires_at == "1970-01-01T00:00:08Z"
 ---
 type: create-blocks
 count: 4
@@ -1925,7 +1954,7 @@ type: check
 endpoint: /glassharbor/registry/v1/requests/1
 asserts:
   - .request.status == "REQUEST_STATUS_FAILED"
-  - .request.resolved_height == "7"
+  - .request.resolved_height == "8"
   - (.request.no_power | tonumber) > 0
   - .request.yes_power == "0"
 ---
@@ -1978,7 +2007,7 @@ asserts:
   - .request.escrow.amount == "0"
 ```
 
-Heights: request at 2 (expires 7), rejected txs and the NO vote at 3, four more blocks reach 7 where it resolves. The wrong-denom escrow case runs only after request 1 is closed because §6.5 checks `ErrRequestExists` before the escrow rule; `{stake, 5}` is a valid SDK coin so `ValidateBasic` passes and the handler yields `ErrInvalidEscrow`.
+Heights (node starts at 1): create+publish at 2, request at 3 (expires 8), rejected txs and the NO vote at 4, four more blocks reach 8 where it resolves, the escrow reject and request 2 at 9. The wrong-denom escrow case runs only after request 1 is closed because §6.5 checks `ErrRequestExists` before the escrow rule; `{stake, 5}` is a valid SDK coin so `ValidateBasic` passes and the handler yields `ErrInvalidEscrow`.
 
 - [ ] **Step 8: `request/revocation.yaml`**
 
@@ -2049,7 +2078,7 @@ asserts:
   - .request.status == "REQUEST_STATUS_OPEN"
   - .request.requester == "{{ addr validator }}"
   - .request.escrow.amount == "0"
-  - .request.expires_at == "1970-01-01T00:00:12Z"
+  - .request.expires_at == "1970-01-01T00:00:14Z"
 ---
 type: tx
 signer: validator
@@ -2075,7 +2104,7 @@ type: check
 endpoint: /glassharbor/registry/v1/requests/2
 asserts:
   - .request.status == "REQUEST_STATUS_PASSED"
-  - .request.resolved_height == "12"
+  - .request.resolved_height == "14"
 ---
 type: check
 endpoint: /glassharbor/registry/v1/apps/1
@@ -2088,7 +2117,7 @@ asserts:
   - .version.blue_check == false
 ```
 
-Heights: blue-check request at 1 (expires 6); the rejected revocation and the YES vote at 2 (same signer, so ordered); blocks 3..7 resolve request 1 at 6; revocation request at 7 (expires 12); duplicate rejected and YES vote at 8; blocks 9..12 resolve request 2 at 12. The rejected revocation is not in block 1 because tx order across signers is random and the version must exist first. The requester of a revocation is the account address derived from the valoper bytes, which for a self-delegated validator is its own account.
+Heights (node starts at 1): create, publish and blue-check request at 2 (expires 7); the rejected revocation and the YES vote at 3 (same signer, so ordered); blocks 4..8 resolve request 1 at 7; revocation request at 9 (expires 14); duplicate rejected and YES vote at 10; blocks 11..14 resolve request 2 at 14. The rejected revocation is not in block 1 because tx order across signers is random and the version must exist first. The requester of a revocation is the account address derived from the valoper bytes, which for a self-delegated validator is its own account.
 
 - [ ] **Step 9: `request/vote.yaml`**
 
@@ -2158,7 +2187,7 @@ endpoint: /glassharbor/registry/v1/requests/1/votes
 asserts:
   - .votes | length == 1
   - .votes[0].option == "VOTE_OPTION_NO"
-  - .votes[0].height == "2"
+  - .votes[0].height == "3"
 ---
 type: tx
 signer: validator
@@ -2175,7 +2204,7 @@ endpoint: /glassharbor/registry/v1/requests/1/votes
 asserts:
   - .votes | length == 1
   - .votes[0].option == "VOTE_OPTION_YES"
-  - .votes[0].height == "3"
+  - .votes[0].height == "4"
 ---
 type: create-blocks
 count: 3
@@ -2197,7 +2226,7 @@ msgs:
 type: create-blocks
 ```
 
-`{{ valoper bob }}` is bob's account bytes with the valoper prefix; bob signs because the signer field is that valoper address and its bytes are bob's key. If the `VOTE_OPTION_UNSPECIFIED` case is rejected by `ValidateBasic` with a different string, adjust the `error:`.
+Heights (node starts at 1): create, publish and request at 2 (expires 7); rejects and the NO vote at 3; the YES re-vote at 4; blocks 5..7 resolve at 7; the vote on the closed request is rejected at 8. `{{ valoper bob }}` is bob's account bytes with the valoper prefix; bob signs because the signer field is that valoper address and its bytes are bob's key. If the `VOTE_OPTION_UNSPECIFIED` case is rejected by `ValidateBasic` with a different string, adjust the `error:`.
 
 - [ ] **Step 10: `params/update.yaml`**
 
@@ -2369,7 +2398,8 @@ when a suite asks for them, and the app sees block time `unix(height)`, so
     DEBUG=1 ...                                # also stream node logs to stderr
 
 Needs `jq` on `PATH`. Suites run in parallel on free ports; on failure the last 100 lines of
-the node log are printed.
+the node log are printed. The runner produces block 1 during startup (the SDK refuses queries
+before the first block), so a suite starts at height 1 and its first `create-blocks` gives 2.
 
 ## Keys
 

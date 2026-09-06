@@ -137,7 +137,10 @@ then recover five keys from fixed 24-word mnemonics committed in the runner into
 `gentx` + `collect-gentxs`. `config set` applies §4.5. The base home is a `t.TempDir()`;
 each test copies it, renders and merges `templates/default-state.yaml` then its own
 `state` ops into `config/genesis.json` with `jq -s '.[0] * .[1]'`, and starts the node
-with `HARBORD_REGTEST_BIN` (default `build/harbord-regtest`).
+with `HARBORD_REGTEST_BIN` (default `build/harbord-regtest`). Once the gate answers, the
+runner produces block 1 itself, because the SDK refuses queries until the first block is
+committed (`baseapp/abci.go`: "is not ready; please wait for first block"). Every suite
+therefore starts at height 1; its first `create-blocks` yields height 2.
 
 ### 5.2 `templates/default-state.yaml`
 
