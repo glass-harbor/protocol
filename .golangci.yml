@@ -4,6 +4,9 @@ version: "2"
 run:
   tests: true
   allow-parallel-runners: true
+  build-tags:
+    - regtest
+    - regression
 linters:
   default: none
   enable:
@@ -43,6 +46,8 @@ linters:
         - G704  # SSRF via taint analysis - safe in context
         - G705  # XSS via taint analysis - safe in context
         - G117  # exported struct field matches secret pattern - safe in context
+        - G204  # regression runner execs the node binary with computed args
+        - G304  # regression runner reads suite files by path
       confidence: medium
     misspell:
       locale: US
