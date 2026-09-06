@@ -10,6 +10,7 @@ KR=(--keyring-backend test --home "$HOME_DIR")
 init() {
   if [ -f "$HOME_DIR/config/genesis.json" ]; then
     echo "localnet already initialised at $HOME_DIR"
+    "$BIN" config set app api.swagger true --home "$HOME_DIR" --skip-validate
     return
   fi
   "$BIN" init local --chain-id "$CHAIN_ID" --default-denom uglass --home "$HOME_DIR" >/dev/null 2>&1
