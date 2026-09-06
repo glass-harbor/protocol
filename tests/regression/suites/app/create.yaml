@@ -1,0 +1,68 @@
+# MsgCreateApp (SPEC §6.5): fields, owner index, fee split (§7), category check (§6.4).
+# The runner makes block 1 during startup, so the first create-blocks yields height 2.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: First
+    description: the first app
+    website: https://example.com
+    source_url: https://github.com/example/first
+    category: games
+    tags: [fun, retro]
+---
+type: tx
+signer: bob
+error: "category not allowed"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "bob" }}"
+    title: Bad Category
+    description: rejected
+    category: nope
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .app.id == "1"
+  - .app.owner == "{{ addr "alice" }}"
+  - .app.category == "games"
+  - .app.tags == ["fun", "retro"]
+  - .app.version_count == "0"
+  - .app.latest_version == ""
+  - .app.created_height == "2"
+  - .app.deprecated == false
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps
+params: { owner: "{{ addr "alice" }}" }
+asserts:
+  - .apps | length == 1
+  - .apps[0].app.id == "1"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps
+params: { owner: "{{ addr "bob" }}" }
+asserts:
+  - .apps == []
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999990000000"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000001000000"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "bob" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000000000000"

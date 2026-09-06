@@ -1,0 +1,104 @@
+# MsgYankVersion: yank clears blue_check, cancels the open request and refunds escrow (§6.5);
+# double yank rejected. The first tx carries two msgs on purpose: it exercises multi-msg txs.
+# Heights (node starts at 1): create+publish at 2; blue-check request at 3; yank at 4; rejects at 5.
+# Alice pays create (10000000), publish (5000000) and escrow (250000) -> 999984750000; the yank
+# refund returns the escrow -> 999985000000.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Yankable
+    description: yank
+    category: utilities
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+---
+type: create-blocks
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    escrow: { denom: uglass, amount: "250000" }
+---
+type: create-blocks
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999984750000"
+---
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgYankVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1/versions/1.0.0
+asserts:
+  - .version.yanked == true
+  - .version.blue_check == false
+  - .version.blue_check_request_id == "0"
+---
+type: check
+endpoint: /glassharbor/registry/v1/requests/1
+asserts:
+  - .request.status == "REQUEST_STATUS_CANCELLED"
+  - .request.resolved_height == "4"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "alice" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "999985000000"
+---
+type: tx
+signer: alice
+error: "version is yanked"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgYankVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: tx
+signer: alice
+error: "version not found"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgYankVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 9.9.9
+---
+type: tx
+signer: alice
+error: "version is yanked"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: create-blocks
+---
+# §6.7: REST enum query params take the numeric enum value; 1 is REQUEST_STATUS_OPEN.
+type: check
+endpoint: /glassharbor/registry/v1/requests
+params: { status: "1" }
+asserts:
+  - .requests == []

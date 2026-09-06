@@ -1,0 +1,110 @@
+# MsgRequestRevocation: after a passed blue check, a bonded validator can request revocation;
+# a yes tally clears blue_check and verified (§6.6). Unverified version rejected.
+# Heights (node starts at 1): create, publish and the blue-check request at 2 (expires 7s); the
+# rejected revocation and the YES vote at 3 (same signer, so ordered); blocks 3..7 resolve request
+# 1 at height 7. The rejected revocation cannot share block 2 because tx order across signers is
+# random and the version must exist first. The revocation request lands at 8 (expires 13s); the
+# duplicate reject and its YES vote at 9; blocks 9..13 resolve request 2 at height 13.
+# The requester of a revocation is the account address derived from the valoper bytes, which for a
+# self-delegated validator is its own account.
+type: tx
+signer: alice
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgCreateApp
+    creator: "{{ addr "alice" }}"
+    title: Revocable
+    description: revoke
+    category: utilities
+  - "@type": /glassharbor.registry.v1.MsgPublishVersion
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+    magnet: "magnet:?xt=urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a&dn=app.zip"
+    checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    file_size: "1234"
+  - "@type": /glassharbor.registry.v1.MsgRequestBlueCheck
+    owner: "{{ addr "alice" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: create-blocks
+---
+type: tx
+signer: validator
+error: "version has no blue check"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestRevocation
+    validator: "{{ valoper "validator" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: tx
+signer: validator
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgVote
+    validator: "{{ valoper "validator" }}"
+    request_id: "1"
+    option: VOTE_OPTION_YES
+---
+type: create-blocks
+count: 5
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .verified == true
+---
+type: tx
+signer: validator
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestRevocation
+    validator: "{{ valoper "validator" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: create-blocks
+---
+type: check
+endpoint: /glassharbor/registry/v1/requests/2
+asserts:
+  - .request.kind == "REQUEST_KIND_REVOKE"
+  - .request.status == "REQUEST_STATUS_OPEN"
+  - .request.requester == "{{ addr "validator" }}"
+  - .request.escrow.amount == "0"
+  - .request.expires_at == "1970-01-01T00:00:13Z"
+---
+type: tx
+signer: validator
+error: "an open request already exists for this version"
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgRequestRevocation
+    validator: "{{ valoper "validator" }}"
+    app_id: "1"
+    version: 1.0.0
+---
+type: tx
+signer: validator
+msgs:
+  - "@type": /glassharbor.registry.v1.MsgVote
+    validator: "{{ valoper "validator" }}"
+    request_id: "2"
+    option: VOTE_OPTION_YES
+---
+type: create-blocks
+count: 5
+---
+type: check
+endpoint: /glassharbor/registry/v1/requests/2
+asserts:
+  - .request.status == "REQUEST_STATUS_PASSED"
+  - .request.resolved_height == "13"
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1
+asserts:
+  - .verified == false
+---
+type: check
+endpoint: /glassharbor/registry/v1/apps/1/versions/1.0.0
+asserts:
+  - .version.blue_check == false
