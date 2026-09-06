@@ -26,7 +26,10 @@ func (n *node) loadSigner(o op) *signer {
 		return s
 	}
 	addr := mustAddr(o.Signer)
-	code, body := n.httpGet(n.api + "/cosmos/auth/v1beta1/account_info/" + addr.String())
+	code, body, err := n.httpGet(n.api + "/cosmos/auth/v1beta1/account_info/" + addr.String())
+	if err != nil {
+		n.fatalf(o, "account_info for %s failed: %v", o.Signer, err)
+	}
 	if code != http.StatusOK {
 		n.fatalf(o, "account_info for %s returned %d: %s", o.Signer, code, body)
 	}
@@ -99,7 +102,7 @@ func (n *node) tx(o op) {
 		n.fatalf(o, "encode: %v", err)
 	}
 
-	res, err := http.Post(n.gate+"/tx", "application/octet-stream", bytes.NewReader(bz))
+	res, err := httpClient.Post(n.gate+"/tx", "application/octet-stream", bytes.NewReader(bz))
 	if err != nil {
 		n.fatalf(o, "POST /tx: %v", err)
 	}

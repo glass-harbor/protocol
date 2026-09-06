@@ -1,5 +1,6 @@
 # Copied from cosmos-sdk v0.54.4 .golangci.yml (SPEC 3); local changes: path exclusions,
-# gci prefix for this module, misspell exception for the spec-named CANCELLED enum, no SDK build tags.
+# gci prefix for this module, misspell exception for the spec-named CANCELLED enum, the SDK's
+# build tags are replaced below by this repo's own regtest and regression tags.
 version: "2"
 run:
   tests: true

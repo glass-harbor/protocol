@@ -63,3 +63,10 @@ A tx rejected at CheckTx with a matching `error:` is done immediately and does n
 a sequence; a tx rejected in the block consumed one.
 Assert an empty list with `== []`, not `| length == 0`: a missing/null field makes the latter
 pass vacuously.
+
+Within one block, txs from one signer run in nonce order, but the order across signers is
+random (the SDK `SenderNonceMempool` seeds its sender shuffle from `crypto/rand`), so never
+put two txs in the same block whose outcomes depend on which one runs first — put them in
+separate `create-blocks` instead. A suite must end with `create-blocks` after its last `tx`
+(the runner fails the suite otherwise), and a `check` cannot run while txs are pending
+confirmation — add a `create-blocks` before it.

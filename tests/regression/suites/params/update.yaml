@@ -106,3 +106,9 @@ endpoint: /cosmos/bank/v1beta1/balances/{{ addr "bob" }}/by_denom
 params: { denom: uglass }
 asserts:
   - .balance.amount == "999999999999"
+---
+type: check
+endpoint: /cosmos/bank/v1beta1/balances/{{ addr "treasury" }}/by_denom
+params: { denom: uglass }
+asserts:
+  - .balance.amount == "1000000000000"

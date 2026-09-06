@@ -10,6 +10,7 @@ app_state:
     params:
       voting_period: "10s"
       expedited_voting_period: "5s"
+      min_deposit: [{ denom: uglass, amount: "10000000" }]
   staking:
     params:
       unbonding_time: "60s"

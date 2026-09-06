@@ -23,6 +23,11 @@ import (
 
 const chainID = "glassharbor-regtest-1"
 
+// httpClient is shared by every request the runner makes to a node's gate and REST API.
+// 120s comfortably covers a block a suite legitimately leaves parked; a hang past that means
+// the node died, not that it is slow.
+var httpClient = &http.Client{Timeout: 120 * time.Second}
+
 // Fixed mnemonics so addresses are stable across runs and usable in YAML via {{ addr NAME }}.
 var keyMnemonics = []struct{ name, mnemonic string }{
 	{"validator", "gaze bag search west promote avocado fly shield book category mention peanut rose sound jeans cave opera sun axis mansion bomb process toe sport"},
@@ -175,7 +180,8 @@ func startNode(t *testing.T, path string, overlays [][]byte) *node {
 	// therefore starts at height 1 and its first create-blocks yields height 2.
 	deadline := time.Now().Add(60 * time.Second)
 	for {
-		if code, _ := n.httpGet(n.gate + "/ping"); code == http.StatusOK {
+		// Any transport error (connection refused, timeout, ...) just means "not ready yet".
+		if code, _, err := n.httpGet(n.gate + "/ping"); err == nil && code == http.StatusOK {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -187,7 +193,7 @@ func startNode(t *testing.T, path string, overlays [][]byte) *node {
 		t.Fatalf("%s: first /newBlock returned height %d, want 1", path, h)
 	}
 	for {
-		if code, _ := n.httpGet(n.api + "/cosmos/auth/v1beta1/params"); code == http.StatusOK {
+		if code, _, err := n.httpGet(n.api + "/cosmos/auth/v1beta1/params"); err == nil && code == http.StatusOK {
 			return n
 		}
 		if time.Now().After(deadline) {
@@ -208,20 +214,26 @@ func mergeGenesis(t *testing.T, genesis string, overlay []byte) {
 	require.NoError(t, os.WriteFile(genesis, out, 0o600))
 }
 
-// httpGet returns status and body; a transport error is status 0.
-func (n *node) httpGet(url string) (int, []byte) {
-	res, err := http.Get(url) // gosec G107 (variable URL) is already excluded in .golangci.yml
+// httpGet returns status, body, and any transport error (status is meaningless on error).
+func (n *node) httpGet(url string) (int, []byte, error) {
+	res, err := httpClient.Get(url) // gosec G107 (variable URL) is already excluded in .golangci.yml
 	if err != nil {
-		return 0, nil
+		return 0, nil, err
 	}
 	defer res.Body.Close()
 	bz, _ := io.ReadAll(res.Body)
-	return res.StatusCode, bz
+	return res.StatusCode, bz, nil
 }
 
-// newBlock releases one block and returns the committed height.
+// newBlock releases one block and returns the committed height. A timeout or transport error
+// here must fail the test immediately and never retry: the node already received the /newBlock
+// request that released one parked block, so a retry would issue a second /newBlock and double-
+// release the gate, parking the node a second time waiting for a release that will never come.
 func (n *node) newBlock() int64 {
-	code, body := n.httpGet(n.gate + "/newBlock")
+	code, body, err := n.httpGet(n.gate + "/newBlock")
+	if err != nil {
+		n.t.Fatalf("%s: /newBlock failed: %v (node may have died; see log tail)", n.path, err)
+	}
 	if code != http.StatusOK {
 		n.t.Fatalf("%s: /newBlock returned %d: %s (node may have died; see log tail)", n.path, code, body)
 	}

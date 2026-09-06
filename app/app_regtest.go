@@ -72,6 +72,8 @@ func init() {
 		gateBegin <- struct{}{}
 		fmt.Fprint(w, <-gateEnd)
 	})
+	// WriteTimeout must stay unset (zero): /newBlock legitimately blocks in its handler for as
+	// long as the runner leaves a block parked, which can be the length of an entire suite.
 	srv := &http.Server{Addr: os.Getenv("HARBORD_REGTEST_ADDR"), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {

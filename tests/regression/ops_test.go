@@ -169,6 +169,9 @@ func runSuite(t *testing.T, path string) {
 			n.check(o)
 		}
 	}
+	if len(n.pending) > 0 {
+		n.fatalf(n.pending[0].o, "%d tx(s) never confirmed: add a trailing create-blocks", len(n.pending))
+	}
 }
 
 // createBlocks releases count blocks and verifies pending txs landed in the first one.
@@ -187,6 +190,11 @@ func (n *node) createBlocks(o op) {
 
 // check fetches an endpoint and runs each assert through `jq -e`.
 func (n *node) check(o op) {
+	// A check before the block that applies pending txs is almost always a suite bug: it
+	// observes state as of the last committed block, not the txs the suite just submitted.
+	if len(n.pending) > 0 {
+		n.fatalf(o, "check while %d tx(s) are pending: add a create-blocks first", len(n.pending))
+	}
 	u := o.Endpoint
 	if !strings.HasPrefix(u, "http") {
 		u = n.api + u
@@ -198,9 +206,9 @@ func (n *node) check(o op) {
 		}
 		u += "?" + q.Encode()
 	}
-	code, body := n.httpGet(u)
-	if code == 0 {
-		n.fatalf(o, "GET %s failed", u)
+	code, body, err := n.httpGet(u)
+	if err != nil {
+		n.fatalf(o, "GET %s failed: %v", u, err)
 	}
 	for _, a := range o.Asserts {
 		cmd := exec.Command("jq", "-e", a)
